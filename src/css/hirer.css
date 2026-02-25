@@ -1,0 +1,267 @@
+/* Hirer Dashboard Specific Styles */
+.hirer-dashboard {
+    width: 100%;
+}
+
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    font-size: 16px;
+    color: #64748b;
+}
+
+/* Tabs */
+.tabs-container {
+    margin-top: 32px;
+}
+
+.tabs-header {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 12px;
+    scrollbar-width: none;
+}
+
+.tabs-header::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    white-space: nowrap;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+    background: #1e293b;
+    color: #ffffff;
+    border-color: #1e293b;
+}
+
+/* Lists and Cards */
+.list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.item-card {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.item-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.status-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.status-badge.open,
+.status-badge.active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.pending {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.item-meta {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.item-price {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.empty-placeholder {
+    background: #f1f5f9;
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 48px;
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Tab count badge */
+.tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin-left: 6px;
+    color: inherit;
+}
+
+.tab-btn:not(.active) .tab-count {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+/* Ongoing card */
+.ongoing-card {
+    border-left: 4px solid #6366f1;
+}
+
+/* Application card */
+.application-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.app-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.app-worker-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.app-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #1e293b;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.app-date {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.app-cover-letter {
+    font-size: 14px;
+    color: #475569;
+    font-style: italic;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border-left: 3px solid #e2e8f0;
+    line-height: 1.6;
+}
+
+/* Accept / Reject buttons */
+.app-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.app-accept-btn {
+    flex: 1;
+    padding: 10px;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.app-accept-btn:hover:not(:disabled) {
+    background: #15803d;
+}
+
+.app-reject-btn {
+    flex: 1;
+    padding: 10px;
+    background: #fff;
+    color: #dc2626;
+    border: 1.5px solid #fca5a5;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.app-reject-btn:hover:not(:disabled) {
+    background: #fef2f2;
+}
+
+.app-accept-btn:disabled,
+.app-reject-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Status badges */
+.status-badge.accepted {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.rejected {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.status-badge.in_progress {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.item-timestamp {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-left: 8px;
+}
