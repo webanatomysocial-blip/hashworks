@@ -1,25 +1,41 @@
+"use client";
+
 import Link from 'next/link';
 import '@/css/home.css';
 import '@/css/auth.css';
+import Snowfall from 'react-snowfall';
 
 export default function Home() {
   return (
+    <>
+     <Snowfall
+        radius={[5, 10]}
+        color="#b7c3d2ff"
+        speed={[0.5, 1.5]}
+        wind={[-0.5, 0.5]}
+        opacity={[0.3, 0.9]}
+        snowflakeCount={100}
+        style={{
+          position: "fixed",
+          width: "100vw",
+          height: "100vh",
+          top: 0,
+          left: 0,
+          zIndex: 0,
+        }}
+      />
     <main className="home-root">
+      
       {/* Background orbs */}
       <div className="home-orb home-orb-1" />
       <div className="home-orb home-orb-2" />
       <div className="home-orb home-orb-3" />
 
       {/* Nav */}
-      <nav className="home-nav">
-        <div className="home-logo">#hashworks</div>
-        {/* <div className="home-nav-links">
-          <Link href="/login" className="home-nav-login">Log in</Link>
-          <Link href="/signup" className="home-nav-signup">Sign up →</Link>
-        </div> */}
-      </nav>
+     
 
       {/* Hero */}
+     
       <section className="home-hero">
 
         <h1 className="home-heading">
@@ -34,7 +50,7 @@ export default function Home() {
         </p>
 
         <div className="home-cta-row">
-          
+
           <Link href="/signup" className="auth-submit-btn">
             Create a free account
           </Link>
@@ -43,10 +59,11 @@ export default function Home() {
         <p className="home-hint">Already have an account? <Link href="/login" className="home-hint-link">Log in →</Link></p>
       </section>
 
-  
+
       <footer className="home-footer">
-        © {new Date().getFullYear()} HashWorks · 
+        © {new Date().getFullYear()} HashWorks ·
       </footer>
     </main>
+    </>
   );
 }

@@ -1,320 +1,461 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import StatsCard from '@/Components/StatsCard.jsx';
-import JobItem from '@/Components/JobItem.jsx';
 import ConfirmModal from '@/Components/ConfirmModal.jsx';
+import {
+    FiBriefcase, FiUsers, FiCreditCard, FiChevronRight,
+    FiPlus, FiEdit2, FiStar, FiBookmark, FiActivity,
+    FiFileText
+} from 'react-icons/fi';
+import { BsFillPersonFill } from 'react-icons/bs';
 import '@/css/hirer.css';
+
+/* helper: full name from profile */
+function fullName(p) {
+    if (!p) return 'Unknown';
+    return [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username || 'Unknown';
+}
+
+/* helper: initials */
+function initials(p) {
+    if (!p) return '?';
+    const f = p.first_name?.[0] || '';
+    const l = p.last_name?.[0] || '';
+    return (f + l).toUpperCase() || '?';
+}
+
+/* helper: time ago */
+function timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 60000);
+    if (diff < 60) return `${diff}m ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+    return `${Math.floor(diff / 1440)}d ago`;
+}
 
 export default function HirerDashboard() {
     const [profile, setProfile] = useState(null);
     const [userId, setUserId] = useState(null);
-    const [stats, setStats] = useState({ totalJobs: 0, activeProjects: 0, pendingApps: 0 });
-    const [activeTab, setActiveTab] = useState('active-jobs');
+    const [jobs, setJobs] = useState([]);
+    const [applications, setApplications] = useState([]);
+    const [contracts, setContracts] = useState([]);
+    const [savedTalent, setSavedTalent] = useState([]);
+    const [reviews, setReviews] = useState([]);
+    const [balance, setBalance] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const [activeJobs, setActiveJobs] = useState([]);
-    const [ongoingProjects, setOngoingProjects] = useState([]);
-    const [recentApps, setRecentApps] = useState([]);
+    /* post job modal */
+    const [jobToEdit, setJobToEdit] = useState(null);
 
-    // Delete state
+    /* delete modal */
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [jobToDelete, setJobToDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    // Accept/Reject state
-    const [actionLoading, setActionLoading] = useState(null); // applicationId being actioned
-
-    const fetchDashboardData = useCallback(async () => {
+    const fetchAll = useCallback(async () => {
         setLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             setUserId(user.id);
 
-            // Fetch Profile
-            const { data: profileData } = await supabase
+            /* profile */
+            const { data: prof } = await supabase
                 .from('profiles').select('*').eq('id', user.id).single();
-            setProfile(profileData);
+            setProfile(prof);
 
-            // 1. Fetch ALL jobs created by this user
-            const { data: jobsData, error: jobsErr } = await supabase
+            /* jobs */
+            const { data: jobsData } = await supabase
                 .from('jobs')
                 .select('*')
                 .eq('hirer_id', user.id)
                 .order('created_at', { ascending: false });
+            const allJobs = jobsData || [];
+            setJobs(allJobs);
 
-            if (jobsErr) console.error('Jobs error:', jobsErr);
-            const jobs = jobsData || [];
-
-            // Split into active (open/draft) and ongoing (in_progress)
-            const active = jobs.filter(j => j.status === 'open' || j.status === 'draft');
-            const ongoing = jobs.filter(j => j.status === 'in_progress');
-
-            setActiveJobs(active);
-            setOngoingProjects(ongoing);
-            setStats(prev => ({
-                ...prev,
-                totalJobs: jobs.length,
-                activeProjects: ongoing.length
-            }));
-
-            // 2. Fetch applications FOR THIS HIRER's jobs
-            if (jobs.length > 0) {
-                const jobIds = jobs.map(j => j.id);
-                const { data: appsData, error: appsErr } = await supabase
+            /* applications for hirer's jobs */
+            if (allJobs.length > 0) {
+                const jobIds = allJobs.map(j => j.id);
+                const { data: appsData } = await supabase
                     .from('applications')
-                    .select('*, profiles(full_name, avatar_url), jobs(title, budget)')
+                    .select('*, worker:profiles!applications_worker_id_fkey(id, first_name, last_name, username, avatar_url), jobs(title)')
                     .in('job_id', jobIds)
                     .order('created_at', { ascending: false });
+                setApplications(appsData || []);
+            }
 
-                if (appsErr) console.error('Applications error:', appsErr);
-                const apps = appsData || [];
-                setRecentApps(apps);
-                setStats(prev => ({
-                    ...prev,
-                    pendingApps: apps.filter(a => a.status === 'pending').length
-                }));
-            } else {
-                setRecentApps([]);
+            /* contracts */
+            const { data: conData } = await supabase
+                .from('contracts')
+                .select('*, jobs(title, urgency), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url)')
+                .eq('hirer_id', user.id)
+                .eq('status', 'active')
+                .order('created_at', { ascending: false });
+            setContracts(conData || []);
+
+            /* saved talent */
+            const { data: talentData } = await supabase
+                .from('saved_talent')
+                .select('*, worker:profiles!saved_talent_worker_id_fkey(id, first_name, last_name, username, avatar_url, bio)')
+                .eq('hirer_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(4);
+            setSavedTalent(talentData || []);
+
+            /* reviews about the hirer */
+            const { data: revData } = await supabase
+                .from('reviews')
+                .select('*, reviewer:profiles!reviews_reviewer_id_fkey(id, first_name, last_name, username, avatar_url)')
+                .eq('reviewee_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(3);
+            setReviews(revData || []);
+
+            /* balance from transactions */
+            const { data: txData } = await supabase
+                .from('transactions')
+                .select('amount, type')
+                .eq('user_id', user.id)
+                .eq('status', 'completed');
+            if (txData) {
+                const bal = txData.reduce((sum, t) => {
+                    if (t.type === 'deposit') return sum + Number(t.amount);
+                    if (t.type === 'payment' || t.type === 'withdrawal' || t.type === 'platform_fee') return sum - Number(t.amount);
+                    return sum;
+                }, 0);
+                setBalance(bal);
             }
 
         } catch (err) {
-            console.error('Error fetching dashboard data:', err);
+            console.error('Dashboard fetch error:', err);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    const handleEdit = (job) => {
-        const event = new CustomEvent('openPostJobModal', { detail: job });
-        window.dispatchEvent(event);
-    };
+    useEffect(() => {
+        fetchAll();
+    }, [fetchAll]);
 
-    const confirmDelete = (jobId) => {
-        setJobToDelete(jobId);
-        setDeleteModalOpen(true);
-    };
-
+    /* delete job */
     const handleDelete = async () => {
         if (!jobToDelete) return;
         setDeleteLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('User session not found.');
-
             const { data, error } = await supabase
-                .from('jobs')
-                .delete()
-                .eq('id', jobToDelete)
-                .eq('hirer_id', user.id)
-                .select();
-
+                .from('jobs').delete().eq('id', jobToDelete).eq('hirer_id', userId).select();
             if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error('Could not delete: The job was not found or you do not own it.');
-            }
-
-            setActiveJobs(prev => prev.filter(j => j.id !== jobToDelete));
-            setOngoingProjects(prev => prev.filter(j => j.id !== jobToDelete));
-            setStats(prev => ({ ...prev, totalJobs: Math.max(0, prev.totalJobs - 1) }));
+            if (!data?.length) throw new Error('Could not delete: job not found or not owned by you.');
+            setJobs(prev => prev.filter(j => j.id !== jobToDelete));
             setDeleteModalOpen(false);
             setJobToDelete(null);
         } catch (err) {
-            console.error('Delete error:', err);
             alert(err.message || 'Failed to delete job.');
         } finally {
             setDeleteLoading(false);
         }
     };
 
-    // Accept an application → update app to accepted + job to in_progress
-    const handleAccept = async (app) => {
-        setActionLoading(app.id);
-        try {
-            // Update application status
-            const { error: appErr } = await supabase
-                .from('applications')
-                .update({ status: 'accepted' })
-                .eq('id', app.id);
-            if (appErr) throw appErr;
-
-            // Update job status to in_progress
-            const { error: jobErr } = await supabase
-                .from('jobs')
-                .update({ status: 'in_progress' })
-                .eq('id', app.job_id);
-            if (jobErr) throw jobErr;
-
-            // Update local state
-            setRecentApps(prev => prev.map(a => a.id === app.id ? { ...a, status: 'accepted' } : a));
-
-            // Move job from active to ongoing
-            setActiveJobs(prev => prev.filter(j => j.id !== app.job_id));
-            setOngoingProjects(prev => {
-                const job = activeJobs.find(j => j.id === app.job_id);
-                if (job && !prev.find(j => j.id === job.id)) {
-                    return [...prev, { ...job, status: 'in_progress' }];
-                }
-                return prev;
-            });
-            setStats(prev => ({
-                ...prev,
-                pendingApps: Math.max(0, prev.pendingApps - 1),
-                activeProjects: prev.activeProjects + 1
-            }));
-
-        } catch (err) {
-            console.error('Accept error:', err);
-            alert(err.message || 'Failed to accept application.');
-        } finally {
-            setActionLoading(null);
-        }
+    /* navigate to edit page */
+    const handleEdit = (job) => {
+        router.push(`/hirer/postings/edit/?id=${job.id}`);
     };
 
-    // Reject an application
-    const handleReject = async (appId) => {
-        setActionLoading(appId);
-        try {
-            const { error } = await supabase
-                .from('applications')
-                .update({ status: 'rejected' })
-                .eq('id', appId);
-            if (error) throw error;
+    if (loading) return <div className="loading-state">Loading …</div>;
 
-            setRecentApps(prev => prev.map(a => a.id === appId ? { ...a, status: 'rejected' } : a));
-            setStats(prev => ({ ...prev, pendingApps: Math.max(0, prev.pendingApps - 1) }));
-        } catch (err) {
-            console.error('Reject error:', err);
-            alert(err.message || 'Failed to reject application.');
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
-    useEffect(() => {
-        fetchDashboardData();
-    }, [fetchDashboardData]);
-
-    if (loading) return <div className="loading-state">Loading dashboard...</div>;
+    /* derived */
+    const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'draft');
+    const totalApps = applications.length;
+    const pendingApps = applications.filter(a => a.status === 'pending');
 
     return (
         <div className="hirer-dashboard">
-            <section className="welcome-section">
-                <h1 className="welcome-title">Hey {profile?.full_name?.split(' ')[0] || 'there'},</h1>
-                <p className="welcome-subtitle">Here&apos;s your hiring overview.</p>
-            </section>
 
-            <div className="stats-grid">
-                <StatsCard label="Total Jobs" value={stats.totalJobs} />
-                <StatsCard label="Ongoing" value={stats.activeProjects} />
-                <StatsCard label="Pending Apps" value={stats.pendingApps} />
+            {/* ── Greeting ── */}
+            <div className="hd-greeting">
+                <p className="hd-greeting-sub">Recruiter Dashboard</p>
+                <h1 className="hd-greeting-name">
+                    Hello, {profile?.first_name || 'there'}
+                </h1>
             </div>
 
-            <div className="tabs-container">
-                <div className="tabs-header">
-                    <button className={`tab-btn ${activeTab === 'active-jobs' ? 'active' : ''}`} onClick={() => setActiveTab('active-jobs')}>
-                        Active Jobs <span className="tab-count">{activeJobs.length}</span>
-                    </button>
-                    <button className={`tab-btn ${activeTab === 'ongoing' ? 'active' : ''}`} onClick={() => setActiveTab('ongoing')}>
-                        Ongoing <span className="tab-count">{ongoingProjects.length}</span>
-                    </button>
-                    <button className={`tab-btn ${activeTab === 'recent' ? 'active' : ''}`} onClick={() => setActiveTab('recent')}>
-                        Applications <span className="tab-count">{recentApps.length}</span>
-                    </button>
+            {/* ── Balance Card ── */}
+            {/* <div className="hd-balance-card">
+                <div className="hd-balance-top">
+                    <span className="hd-balance-label">Balance</span>
+                    <FiCreditCard className="hd-balance-icon" />
+                </div>
+                <div className="hd-balance-amount">
+                    ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="hd-balance-actions">
+                    <button className="hd-balance-btn primary">Add Funds</button>
+                    <button className="hd-balance-btn outline">View Logs</button>
+                </div>
+            </div> */}
+
+            {/* ── Stats Row ── */}
+            <div className="hd-stats-row">
+                <div className="hd-stat-card">
+                    <div className="hd-stat-icon blue">
+                        <FiBriefcase />
+                    </div>
+                    <div>
+                        <div className="hd-stat-value">{activeJobs.length}</div>
+                        <div className="hd-stat-label">Active Postings</div>
+                    </div>
+                </div>
+                <div className="hd-stat-card">
+                    <div className="hd-stat-icon purple">
+                        <FiUsers />
+                    </div>
+                    <div>
+                        <div className="hd-stat-value">{totalApps}</div>
+                        <div className="hd-stat-label">Total Applications</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Posted Jobs ── */}
+            <div className="hd-section">
+                <div className="hd-section-header">
+                    <h2 className="hd-section-title">
+                        <FiFileText className="hd-section-title-icon" />
+                        Posted Jobs
+                    </h2>
+                    <Link href="/hirer/postings" className="hd-section-link">
+                        Manage All
+                    </Link>
                 </div>
 
-                <div className="tab-content">
-                    {/* Active Jobs */}
-                    {activeTab === 'active-jobs' && (
-                        <div className="list-container">
-                            {activeJobs.length > 0 ? activeJobs.map(job => (
-                                <JobItem
-                                    key={job.id}
-                                    job={job}
-                                    onEdit={handleEdit}
-                                    onDelete={confirmDelete}
-                                />
-                            )) : (
-                                <div className="empty-placeholder">No active jobs. Post a job to get started!</div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Ongoing Jobs (in_progress) */}
-                    {activeTab === 'ongoing' && (
-                        <div className="list-container">
-                            {ongoingProjects.length > 0 ? ongoingProjects.map(job => (
-                                <div key={job.id} className="item-card ongoing-card">
-                                    <div className="item-header">
-                                        <h4 className="item-title">{job.title}</h4>
-                                        <span className="status-badge in_progress">In Progress</span>
+                {activeJobs.length === 0 ? (
+                    <div className="hd-empty">No active jobs yet. Post your first job!</div>
+                ) : (
+                    <div className="hd-jobs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                        {activeJobs.slice(0, 4).map(job => {
+                            const appCount = applications.filter(a => a.job_id === job.id).length;
+                            return (
+                                <div key={job.id} className="hd-job-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', margin: 0 }}>
+                                    <div>
+                                        <div className="hd-job-card-top">
+                                            <h3 className="hd-job-title">{job.title}</h3>
+                                            <span className={`hd-status-badge ${job.status}`}>
+                                                {job.status.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <p className="hd-job-meta">
+                                            <strong>{appCount} Application{appCount !== 1 ? 's' : ''} Received</strong>
+                                            {' · Posted '}
+                                            {new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </p>
                                     </div>
-                                    <p className="item-meta">
-                                        {job.budget ? `Budget: ₹${job.budget}` : 'No budget set'}
-                                        <span className="item-timestamp">
-                                            Posted {new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </span>
+                                    <div className="hd-job-card-actions" style={{ marginTop: 'auto' }}>
+                                        <Link href={`/hirer/postings/edit?id=${job.id}`} className="hd-job-action-btn">
+                                            <FiEdit2 size={13} /> Edit
+                                        </Link>
+                                        <Link href={`/hirer/postings/review/?id=${job.id}`} className="hd-job-action-btn review">
+                                            Review
+                                        </Link>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {activeJobs.length > 4 && (
+                    <div style={{ textAlign: 'center', marginTop: 8 }}>
+                        <Link href="/hirer/postings" className="hd-section-link" style={{ display: 'inline-block', padding: '8px 16px' }}>
+                            View all {activeJobs.length} jobs <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
+                        </Link>
+                    </div>
+                )}
+            </div>
+
+            {/* ── New Applications ── */}
+            <div className="hd-section">
+                <div className="hd-section-header">
+                    <h2 className="hd-section-title">
+                        <FiUsers className="hd-section-title-icon" />
+                        New Applications
+                    </h2>
+                    {pendingApps.length > 4 && (
+                        <Link href="/hirer/postings" className="hd-section-link">
+                            View All <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
+                        </Link>
+                    )}
+                </div>
+
+                {pendingApps.length === 0 ? (
+                    <div className="hd-empty">No new applications yet.</div>
+                ) : (
+                    pendingApps.slice(0, 4).map(app => {
+                        const w = app.worker;
+                        return (
+                            <div key={app.id} className="hd-app-item">
+                                <div className="hd-app-avatar">
+                                    {w?.avatar_url
+                                        ? <img src={w.avatar_url} alt={fullName(w)} />
+                                        : initials(w)}
+                                </div>
+                                <div className="hd-app-info">
+                                    <p className="hd-app-name">{fullName(w)}</p>
+                                    <p className="hd-app-sub">
+                                        Applied for {app.jobs?.title || 'a job'} · {timeAgo(app.created_at)}
                                     </p>
                                 </div>
-                            )) : (
-                                <div className="empty-placeholder">No ongoing projects yet. Accept an application to start one.</div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Applications */}
-                    {activeTab === 'recent' && (
-                        <div className="list-container">
-                            {recentApps.length > 0 ? recentApps.map(app => (
-                                <div key={app.id} className="item-card application-card">
-                                    <div className="app-card-header">
-                                        <div className="app-worker-info">
-                                            <div className="app-avatar">
-                                                {app.profiles?.full_name?.[0]?.toUpperCase() || '?'}
-                                            </div>
-                                            <div>
-                                                <h4 className="item-title">{app.profiles?.full_name || 'Unknown Worker'}</h4>
-                                                <p className="item-meta">Applied for: <strong>{app.jobs?.title}</strong></p>
-                                                {app.jobs?.budget && <p className="item-meta">Budget: <strong>₹{app.jobs.budget}</strong></p>}
-                                                <p className="item-meta app-date">
-                                                    {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <span className={`status-badge ${app.status}`}>{app.status}</span>
-                                    </div>
-                                    {app.cover_letter && (
-                                        <p className="app-cover-letter">&ldquo;{app.cover_letter}&rdquo;</p>
-                                    )}
-                                    {app.status === 'pending' && (
-                                        <div className="app-actions">
-                                            <button
-                                                className="app-accept-btn"
-                                                onClick={() => handleAccept(app)}
-                                                disabled={actionLoading === app.id}
-                                            >
-                                                {actionLoading === app.id ? 'Accepting…' : '✓ Accept'}
-                                            </button>
-                                            <button
-                                                className="app-reject-btn"
-                                                onClick={() => handleReject(app.id)}
-                                                disabled={actionLoading === app.id}
-                                            >
-                                                {actionLoading === app.id ? '…' : '✕ Reject'}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )) : (
-                                <div className="empty-placeholder">No applications received yet.</div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                <Link href={`/hirer/postings/review/?id=${app.job_id}`} style={{ color: '#4b5563', display: 'flex' }}>
+                                    <FiChevronRight className="hd-app-chevron" />
+                                </Link>
+                            </div>
+                        );
+                    })
+                )}
             </div>
 
+            {/* ── Ongoing Gigs ── */}
+            <div className="hd-section">
+                <div className="hd-section-header">
+                    <h2 className="hd-section-title">
+                        <FiActivity className="hd-section-title-icon" />
+                        Ongoing Gigs
+                    </h2>
+                </div>
+
+                {contracts.length === 0 ? (
+                    <div className="hd-empty">No active contracts yet.</div>
+                ) : (
+                    <>
+                        {contracts.slice(0, 4).map(contract => {
+                            const w = contract.worker;
+                            const progress = contract.progress_percentage ?? 0;
+                            const urgency = contract.jobs?.urgency || 'flexible';
+                            const urgencyLabel = urgency === 'immediate' ? 'URGENT'
+                                : urgency === 'high' ? 'HIGH PRIORITY'
+                                    : 'FLEXIBLE';
+
+                            /* days until end_date */
+                            let dueText = urgencyLabel;
+                            if (contract.end_date) {
+                                const daysLeft = Math.ceil((new Date(contract.end_date) - Date.now()) / 86400000);
+                                if (daysLeft > 0) dueText = `DUE IN ${daysLeft} DAYS`;
+                                else if (daysLeft === 0) dueText = 'DUE TODAY';
+                                else dueText = 'OVERDUE';
+                            }
+
+                            return (
+                                <div key={contract.id} className="hd-gig-card">
+                                    <div className="hd-gig-top">
+                                        <h3 className="hd-gig-title">{contract.jobs?.title || 'Untitled Gig'}</h3>
+                                        <span className={`hd-urgency-badge ${urgency}`}>{dueText}</span>
+                                    </div>
+                                    <p className="hd-gig-worker">
+                                        Assigned To: <strong>{fullName(w)}</strong>
+                                    </p>
+                                    <div className="hd-progress-label">
+                                        <span>Task Progress</span>
+                                        <span>{progress}%</span>
+                                    </div>
+                                    <div className="hd-progress-bar">
+                                        <div className="hd-progress-fill" style={{ width: `${progress}%` }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {contracts.length > 4 && (
+                            <div style={{ textAlign: 'center', marginTop: 8 }}>
+                                <Link href="/hirer/postings" className="hd-section-link" style={{ display: 'inline-block', padding: '8px 16px' }}>
+                                    View all {contracts.length} gigs <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
+                                </Link>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* ── Saved Talent ── */}
+            {/* <div className="hd-section">
+                <div className="hd-section-header">
+                    <h2 className="hd-section-title">
+                        <FiBookmark className="hd-section-title-icon" />
+                        Saved Talent
+                    </h2>
+                    {savedTalent.length > 0 && (
+                        <button className="hd-section-link">
+                            View All <FiChevronRight size={14} />
+                        </button>
+                    )}
+                </div>
+
+                {savedTalent.length === 0 ? (
+                    <div className="hd-empty">No saved talent yet. Save workers you like!</div>
+                ) : (
+                    <div className="hd-talent-grid">
+                        {savedTalent.map(item => {
+                            const w = item.worker;
+                            return (
+                                <div key={item.id} className="hd-talent-card">
+                                    <div className="hd-talent-avatar">
+                                        {w?.avatar_url
+                                            ? <img src={w.avatar_url} alt={fullName(w)} />
+                                            : initials(w)}
+                                    </div>
+                                    <p className="hd-talent-name">{fullName(w)}</p>
+                                    <p className="hd-talent-role">
+                                        {w?.bio ? w.bio.split(' ').slice(0, 3).join(' ') : 'Freelancer'}
+                                    </p>
+                                    <button className="hd-talent-btn">
+                                        <BsFillPersonFill style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                        View Profile
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div> */}
+
+            {/* ── Recent Feedback ── */}
+            {/* <div className="hd-section">
+                <div className="hd-section-header">
+                    <h2 className="hd-section-title">
+                        <FiStar className="hd-section-title-icon" />
+                        Recent Feedback
+                    </h2>
+                    {reviews.length > 0 && (
+                        <button className="hd-section-link">
+                            Read More <FiChevronRight size={14} />
+                        </button>
+                    )}
+                </div>
+
+                {reviews.length === 0 ? (
+                    <div className="hd-empty">No feedback received yet.</div>
+                ) : (
+                    reviews.map(rev => {
+                        const r = rev.reviewer;
+                        return (
+                            <div key={rev.id} className="hd-feedback-card">
+                                <div className="hd-feedback-top">
+                                    <span className="hd-feedback-reviewer">{fullName(r)}</span>
+                                    <div className="hd-stars">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <FiStar key={i} style={{ fill: i < rev.rating ? '#f59e0b' : 'none', color: i < rev.rating ? '#f59e0b' : '#d1d5db' }} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <p className="hd-feedback-comment">
+                                    &ldquo;{rev.comment || 'Great collaboration!'}&rdquo;
+                                </p>
+                            </div>
+                        );
+                    })
+                )}
+            </div> */}
+
+            {/* Delete Confirm Modal */}
             <ConfirmModal
                 isOpen={deleteModalOpen}
                 onClose={() => setDeleteModalOpen(false)}

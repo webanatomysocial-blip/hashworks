@@ -1,31 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import DashboardHeader from '@/Components/DashboardHeader.jsx';
 import DashboardMobileNav from '@/Components/DashboardMobileNav.jsx';
-import PostJobModal from '@/Components/PostJobModal.jsx';
 import '@/css/dashboard.css';
 
 export default function DashboardLayout({ children }) {
-    const [showPostModal, setShowPostModal] = useState(false);
-    const [editJob, setEditJob] = useState(null);
+    const router = useRouter();
+    const pathname = usePathname();
+    const [loading, setLoading] = useState(true);
 
-    const handleOpenModal = (job = null) => {
-        setEditJob(job);
-        setShowPostModal(true);
-    };
+    const isHirer = pathname?.includes('/hirer');
+    const role = isHirer ? 'hirer' : 'worker';
 
-    const handleCloseModal = () => {
-        setShowPostModal(false);
-        setEditJob(null);
-    };
-
-    // Listen for Edit/Add events from children (since layout wraps pages)
     useEffect(() => {
-        const handleEditEvent = (e) => handleOpenModal(e.detail);
-        window.addEventListener('openPostJobModal', handleEditEvent);
-        return () => window.removeEventListener('openPostJobModal', handleEditEvent);
-    }, []);
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/login');
+            } else {
+                setLoading(false);
+            }
+        };
+        checkUser();
+    }, [router]);
+
+    if (loading) {
+        return (
+            <div className="loading-state">
+                <div className="loading-spinner"></div>
+                <p>Authenticating...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="dashboard-layout">
@@ -34,17 +43,8 @@ export default function DashboardLayout({ children }) {
                 {children}
             </main>
             <DashboardMobileNav
-                onAddClick={() => handleOpenModal()}
-                isModalOpen={showPostModal}
-            />
-            <PostJobModal
-                isOpen={showPostModal}
-                onClose={handleCloseModal}
-                jobToEdit={editJob}
-                onJobPosted={() => {
-                    // This will refresh the page to update the list
-                    window.location.reload();
-                }}
+                onAddClick={() => router.push('/hirer/postings/create')}
+                role={role}
             />
         </div>
     );

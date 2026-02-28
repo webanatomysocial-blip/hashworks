@@ -30,6 +30,9 @@ export default function Signup() {
         setError(null);
 
         try {
+            // Generate a default username from email
+            const defaultUsername = formData.email.split('@')[0] + Math.floor(Math.random() * 1000);
+
             const { data, error: signupError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -38,6 +41,7 @@ export default function Signup() {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
                         phone: formData.phone,
+                        username: defaultUsername, // Add username to metadata
                     },
                 },
             });
@@ -46,7 +50,13 @@ export default function Signup() {
                 console.error('Signup Error:', signupError);
                 setError(signupError.message + (signupError.details ? `: ${signupError.details}` : ''));
             } else {
-                setSuccess(true);
+                if (data.session) {
+                    // Auto-login successful (Email confirmation disabled)
+                    router.push('/role');
+                } else {
+                    // Email confirmation required
+                    setSuccess(true);
+                }
             }
         } catch (err) {
             console.error('Unexpected Error:', err);
@@ -79,11 +89,8 @@ export default function Signup() {
 
                 {error && <div className="auth-message auth-error-message">{error}</div>}
                 {success && (
-                    // <div className="auth-message auth-success-message">
-                    //     Registration successful! Please check your email for confirmation.
-                    // </div>
                     <div className="auth-message auth-success-message">
-                        Registration successfull!
+                        Registration successful! Please check your email to confirm your account.
                     </div>
                 )}
 

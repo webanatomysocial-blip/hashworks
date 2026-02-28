@@ -1,12 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import '@/css/role.css';
 
 export default function RoleSelection() {
     const router = useRouter();
     const [selectedRole, setSelectedRole] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/login');
+            } else {
+                setLoading(false);
+            }
+        };
+        checkUser();
+    }, [router]);
+
+    if (loading) {
+        return (
+            <div className="loading-state">
+                <div className="loading-spinner"></div>
+                <p>Authenticating...</p>
+            </div>
+        );
+    }
 
     const handleNext = () => {
         if (selectedRole === 'hirer') {

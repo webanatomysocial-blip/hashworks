@@ -1,20 +1,34 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { FiMapPin, FiLogOut } from 'react-icons/fi';
+import { supabase } from '@/lib/supabase';
+import LocationModal from './LocationModal';
 import '@/css/dashboard.css';
 
 export default function DashboardHeader() {
     const pathname = usePathname();
+    const router = useRouter();
     const isHirer = pathname?.includes('/hirer');
     const isWorker = pathname?.includes('/worker');
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+    const handleLogout = async () => {
+        try {
+            await supabase.auth.signOut();
+            router.push('/');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
 
     return (
         <header className="dashboard-header">
             <div className="header-left">
                 <div className="header-logo">#</div>
 
-                {/* Role Toggle */}
                 {(isHirer || isWorker) && (
                     <div className="role-toggle">
                         <Link
@@ -32,21 +46,41 @@ export default function DashboardHeader() {
                     </div>
                 )}
             </div>
-            <div className="header-right">
-                <button className="header-icon-btn">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
+
+            {/* Desktop Center Navigation */}
+            <nav className="desktop-main-nav" data-role={isHirer ? 'hirer' : 'worker'}>
+                {isHirer ? (
+                    <>
+                        <Link href="/hirer" className={`d-nav-item ${pathname === '/hirer' ? 'active' : ''}`}>Dashboard</Link>
+                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Chats</Link>
+                        <button className="d-nav-item" onClick={() => (window.location.href = '/hirer/postings/create')}>Post</button>
+                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Pay</Link>
+                        <Link href="/hirer/profile" className={`d-nav-item ${pathname === '/hirer/profile' ? 'active' : ''}`}>Profile</Link>
+                    </>
+                ) : isWorker ? (
+                    <>
+                        <Link href="/worker" className={`d-nav-item ${pathname === '/worker' ? 'active' : ''}`}>Dashboard</Link>
+                        <Link href="/worker/browse" className={`d-nav-item ${pathname === '/worker/browse' ? 'active' : ''}`}>Browse</Link>
+                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Chats</Link>
+                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Wallet</Link>
+                        <Link href="/worker/profile" className={`d-nav-item ${pathname === '/worker/profile' ? 'active' : ''}`}>Profile</Link>
+                    </>
+                ) : null}
+            </nav>
+            <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button className="header-icon-btn" aria-label="Location" onClick={() => setIsLocationModalOpen(true)}>
+                    <FiMapPin size={22} />
                 </button>
-                <button className="header-icon-btn">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                    </svg>
+
+                <button className="header-icon-btn" aria-label="Logout" onClick={handleLogout}>
+                    <FiLogOut size={22} />
                 </button>
             </div>
+
+            <LocationModal
+                isOpen={isLocationModalOpen}
+                onClose={() => setIsLocationModalOpen(false)}
+            />
         </header>
     );
 }

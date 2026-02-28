@@ -100,13 +100,15 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    height: 72px;
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
     display: flex;
     justify-content: space-around;
     align-items: center;
     z-index: 100;
+    padding-bottom: 4px;
+    /* for safe area if any */
 }
 
 @media (min-width: 768px) {
@@ -121,30 +123,64 @@
     align-items: center;
     gap: 4px;
     color: #64748b;
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    flex: 1;
+    /* evenly spaced */
 }
 
+.nav-icon-wrap {
+    width: 40px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.nav-icon-wrap svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
+}
+
+/* Active State Defaults */
 .mobile-nav-item.active {
     color: #1e293b;
 }
 
-.add-btn-mobile {
-    margin-top: -30px;
-    background: #1e293b;
-    color: #ffffff;
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    cursor: pointer;
+.mobile-nav-item.active .nav-icon-wrap {
+    background: #f1f5f9;
+    color: #1e293b;
 }
 
+/* Hirer vs Worker specific styling */
+nav.mobile-nav[data-role="hirer"] .mobile-nav-item.active {
+    color: #0284c7;
+    /* blue label */
+}
 
+nav.mobile-nav[data-role="hirer"] .mobile-nav-item.active .nav-icon-wrap {
+    background: #e0f2fe;
+    /* light blue box */
+    color: #0284c7;
+    /* blue icon */
+}
+
+nav.mobile-nav[data-role="worker"] .mobile-nav-item.active {
+    color: #0f172a;
+    /* black label */
+}
+
+nav.mobile-nav[data-role="worker"] .mobile-nav-item.active .nav-icon-wrap {
+    background: #f1f5f9;
+    /* gray box */
+    color: #0f172a;
+    /* black icon */
+}
 
 /* Item Action Styles */
 .item-card {
@@ -445,6 +481,39 @@
     gap: 20px;
 }
 
+/* Budget min-max side-by-side */
+.budget-range-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.budget-range-row .form-input {
+    flex: 1;
+}
+
+.budget-separator {
+    font-size: 18px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+/* Optional tag in form label */
+.form-label-opt {
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 4px;
+}
+
+/* Post job modal — slightly taller to fit all fields */
+.post-job-modal {
+    max-width: 580px;
+    max-height: 92vh;
+}
+
 .form-submit-btn {
     background: #0f172a;
     color: #ffffff;
@@ -556,4 +625,64 @@
     opacity: 0.6;
     cursor: not-allowed;
     transform: none !important;
+}
+
+/* =========================================
+   DESKTOP NAVIGATION (HEADER)
+   ========================================= */
+
+/* Default: hidden on mobile */
+.desktop-main-nav {
+    display: none;
+}
+
+/* On Desktop: Show desktop-main-nav, hide dashboard-mobile-nav */
+@media (min-width: 768px) {
+    .dashboard-mobile-nav {
+        display: none !important;
+    }
+
+    .desktop-main-nav {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        margin: 0 auto;
+    }
+
+    .d-nav-item {
+        color: #64748b;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: all 0.2s;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+
+    .d-nav-item:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    /* Active states based on role (Hirer vs Worker) */
+    .desktop-main-nav[data-role="hirer"] .d-nav-item.active {
+        background: #e0f2fe;
+        color: #0284c7;
+        font-weight: 600;
+    }
+
+    .desktop-main-nav[data-role="worker"] .d-nav-item.active {
+        background: #1e293b;
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    /* Remove bottom padding on main content since mobile nav is hidden */
+    .dashboard-main {
+        padding-bottom: 24px;
+        /* default padding instead of 80px */
+    }
 }
