@@ -289,7 +289,7 @@ export default function WorkerProfilePage() {
     };
 
     const handleDeleteAccount = async () => {
-        if (!confirm("Are you sure? This will hide your profile and applications from everyone. You can contact support to recover it.")) return;
+        if (!confirm("This will hide your profile and applications from everyone.")) return;
 
         setSaving(true);
         try {

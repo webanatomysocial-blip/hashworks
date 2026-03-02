@@ -24,6 +24,7 @@ export default function WorkerFilterModal({
       location_type: "all",
       urgency: "all",
       city: "",
+      radius: 0,
     };
     setLocalFilters(resetFilters);
   };
@@ -194,6 +195,54 @@ export default function WorkerFilterModal({
                 setLocalFilters((prev) => ({ ...prev, city: e.target.value }))
               }
             />
+          </div>
+
+          {/* Radius Filter */}
+          <div className="fm-section">
+            <div className="fm-label-row">
+              <div className="fm-label">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+                RADIUS (KM)
+              </div>
+              <span className="fm-value-txt">
+                {localFilters.radius === 0
+                  ? "Any"
+                  : `${localFilters.radius} km`}
+              </span>
+            </div>
+            <div className="fm-slider-wrap">
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="5"
+                value={localFilters.radius || 0}
+                onChange={(e) =>
+                  setLocalFilters((prev) => ({
+                    ...prev,
+                    radius: parseInt(e.target.value) || 0,
+                  }))
+                }
+                className="fm-slider"
+              />
+              <div className="fm-slider-labels">
+                <span>Any</span>
+                <span>5k</span>
+                <span>10k</span>
+                <span>15k</span>
+                <span>20k</span>
+              </div>
+            </div>
           </div>
 
           {/* Budget Range */}

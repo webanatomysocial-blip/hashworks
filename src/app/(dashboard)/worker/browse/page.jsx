@@ -22,7 +22,25 @@ export default function BrowseJobsPage() {
     location_type: "all",
     urgency: "all",
     city: "",
+    radius: 0,
   });
+
+  const [userCoords, setUserCoords] = useState(null);
+
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   useEffect(() => {
     fetchJobs();
@@ -36,18 +54,35 @@ export default function BrowseJobsPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Build Base Query
+      // Fetch user's own location once if not already fetched
+      let currentUserCoords = userCoords;
+      if (!currentUserCoords) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("latitude, longitude")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          currentUserCoords = {
+            lat: profile.latitude,
+            lon: profile.longitude,
+          };
+          setUserCoords(currentUserCoords);
+        }
+      }
+
+      // 1. Build Base Query - MUST select hirer coords for distance filter
       let jobsQuery = supabase
         .from("jobs")
         .select(
           `
                     id, title, category, budget_min, budget_max, location_type, city, urgency, created_at, status, hirer_id,
-                    profiles!jobs_hirer_id_fkey (id, first_name, last_name, is_deleted)
+                    profiles!jobs_hirer_id_fkey (id, first_name, last_name, is_deleted, latitude, longitude)
                 `,
         )
         .eq("status", "active")
         .neq("hirer_id", user.id)
-        .eq("profiles.is_deleted", false); // Only show jobs from active users
+        .eq("profiles.is_deleted", false);
 
       // 2. Apply Filters (Server-Side)
       if (filters.category !== "all") {
@@ -63,8 +98,6 @@ export default function BrowseJobsPage() {
         jobsQuery = jobsQuery.ilike("city", `%${filters.city}%`);
       }
       if (filters.budget > 0) {
-        // Show jobs where max budget is at least the requested min, or max is null (negotiable)
-        // If it's 100k+, just filter anything above or equal
         if (filters.budget >= 100000) {
           jobsQuery = jobsQuery.or(`budget_max.gte.100000,budget_max.is.null`);
         } else {
@@ -74,12 +107,12 @@ export default function BrowseJobsPage() {
         }
       }
 
-      // 3. Search Term (Title or Description)
+      // 3. Search Term
       if (searchTerm) {
         jobsQuery = jobsQuery.ilike("title", `%${searchTerm}%`);
       }
 
-      // 4. Personalized Location Logic (Only if no specific location/city filter is set)
+      // 4. Personalized Location Logic
       if (!filters.city && filters.location_type === "all") {
         const { data: profileData } = await supabase
           .from("profiles")
@@ -87,7 +120,6 @@ export default function BrowseJobsPage() {
           .eq("id", user.id)
           .single();
         if (profileData?.city) {
-          // Prioritize local OR remote/onsite
           jobsQuery = jobsQuery.or(
             `location_type.eq.remote,and(location_type.eq.onsite,city.ilike.%${profileData.city}%)`,
           );
@@ -99,7 +131,32 @@ export default function BrowseJobsPage() {
       });
 
       if (error) throw error;
-      setJobs(data || []);
+      let finalJobs = data || [];
+
+      // 5. Client-Side Radius Filter
+      if (
+        filters.radius > 0 &&
+        currentUserCoords?.lat &&
+        currentUserCoords?.lon
+      ) {
+        finalJobs = finalJobs.filter((job) => {
+          // If remote, maybe ignore radius or allow it?
+          // For now, let's filter based on hirer profile location
+          const hLat = job.profiles?.latitude;
+          const hLon = job.profiles?.longitude;
+          if (!hLat || !hLon) return false;
+
+          const distance = getDistance(
+            currentUserCoords.lat,
+            currentUserCoords.lon,
+            hLat,
+            hLon,
+          );
+          return distance <= filters.radius;
+        });
+      }
+
+      setJobs(finalJobs);
 
       // Fetch my applications
       const { data: appsData } = await supabase
@@ -188,7 +245,6 @@ export default function BrowseJobsPage() {
       {/* Header Area */}
       <div className="browse-header">
         <h1>Browse Jobs</h1>
-        <p>Find Your Next Big Opportunity.</p>
       </div>
 
       {/* Search & Filter Bar */}
