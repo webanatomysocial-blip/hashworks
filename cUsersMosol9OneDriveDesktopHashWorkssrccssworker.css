@@ -1,0 +1,62 @@
+
+/* Enhanced Filter Modal Styles */
+.fm-text-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #0f172a;
+    background: #f8fafc;
+    transition: all 0.2s;
+}
+
+.fm-text-input:focus {
+    outline: none;
+    border-color: #cbd5e1;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.fm-footer {
+    padding: 24px;
+    display: flex;
+    gap: 12px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.fm-reset-btn {
+    flex: 1;
+    padding: 16px;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fm-reset-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.fm-apply-btn {
+    flex: 2;
+    padding: 16px;
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fm-apply-btn:hover {
+    background: #1a1a1a;
+    opacity: 0.9;
+}
