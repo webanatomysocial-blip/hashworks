@@ -1,0 +1,24 @@
+# HashWorks Production Static Hosting Configuration
+# For Apache / LiteSpeed (WHM/cPanel)
+
+# 1. Disable directory listing to prevent "Index of /" screens
+Options -Indexes
+
+# 2. Ensure index.html is served for directories
+DirectoryIndex index.html
+
+# 3. Handle Clean URLs and Routing
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Fallback for 404 errors to our Next.js 404 page
+  ErrorDocument 404 /404.html
+
+  # Redirect /path to /path/ if /path/index.html exists
+  # This forces the trailing slash which tells the server to look for index.html
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_URI} !(.*)/$
+  RewriteRule ^(.*)$ %{REQUEST_URI}/ [L,R=301]
+
+</IfModule>
