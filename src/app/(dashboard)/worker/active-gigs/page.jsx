@@ -1,15 +1,19 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiChevronLeft } from 'react-icons/fi';
+import { FiChevronLeft, FiMessageCircle, FiMoreVertical, FiXCircle } from 'react-icons/fi';
+import ChatModal from '@/Components/ChatModal';
 import '@/css/worker.css';
 
 export default function ActiveGigsPage() {
     const router = useRouter();
     const [acceptedApps, setAcceptedApps] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [activeMenuId, setActiveMenuId] = useState(null);
+
+    // Chat State
+    const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
 
     useEffect(() => {
         async function fetchAcceptedGigs() {
@@ -17,12 +21,21 @@ export default function ActiveGigsPage() {
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
+                setCurrentUser(user);
 
                 const { data } = await supabase
-                    .from('applications')
-                    .select('*, jobs(title, budget, profiles!jobs_hirer_id_fkey(first_name, last_name))')
+                    .from('contracts')
+                    .select(`
+                        *,
+                        jobs(
+                            title, 
+                            budget, 
+                            profiles!jobs_hirer_id_fkey(first_name, last_name)
+                        ),
+                        hirer:profiles!contracts_hirer_id_fkey(first_name, last_name)
+                    `)
                     .eq('worker_id', user.id)
-                    .eq('status', 'accepted')
+                    .eq('status', 'active')
                     .order('created_at', { ascending: false });
 
                 setAcceptedApps(data || []);
@@ -34,6 +47,38 @@ export default function ActiveGigsPage() {
         }
         fetchAcceptedGigs();
     }, []);
+
+    const openChat = (contract) => {
+        const hirer = contract.hirer || contract.jobs?.profiles;
+        const name = hirer ? `${hirer.first_name} ${hirer.last_name || ''}` : 'Hirer';
+        setChatConfig({
+            isOpen: true,
+            contractId: contract.id,
+            otherUserName: name
+        });
+    };
+
+    const handleCancelContract = async (contractId, jobId) => {
+        if (!confirm('Are you sure you want to cancel this contract?')) return;
+        try {
+            const { error: contractErr } = await supabase
+                .from('contracts')
+                .update({ status: 'cancelled' })
+                .eq('id', contractId);
+            if (contractErr) throw contractErr;
+
+            await supabase
+                .from('jobs')
+                .update({ status: 'active' })
+                .eq('id', jobId);
+
+            setAcceptedApps(prev => prev.filter(c => c.id !== contractId));
+            setActiveMenuId(null);
+        } catch (err) {
+            console.error('Error cancelling contract:', err);
+            alert('Failed to cancel contract: ' + err.message);
+        }
+    };
 
     if (loading) return <div className="worker-loading">Loading Active Gigs...</div>;
 
@@ -58,30 +103,105 @@ export default function ActiveGigsPage() {
                     {acceptedApps.length === 0 ? (
                         <div className="empty-state-new">You don't have any accepted active gigs yet.</div>
                     ) : (
-                        acceptedApps.map(app => (
-                            <div key={app.id} className="active-gig-card" style={{ marginBottom: '16px' }}>
-                                <div className="gig-header">
+                        acceptedApps.map(contract => (
+                            <div key={contract.id} className="active-gig-card" style={{ marginBottom: '16px' }}>
+                                <div className="gig-header" style={{ position: 'relative' }}>
                                     <div>
-                                        <h3 className="gig-title" style={{ fontSize: '18px', marginBottom: '4px' }}>{app.jobs?.title || 'Unknown Gig'}</h3>
-                                        <p className="gig-company" style={{ fontSize: '14px' }}>{app.jobs?.profiles?.first_name} {app.jobs?.profiles?.last_name || ''}</p>
+                                        <h3 className="gig-title" style={{ fontSize: '18px', marginBottom: '4px' }}>{contract.jobs?.title || 'Unknown Gig'}</h3>
+                                        <p className="gig-company" style={{ fontSize: '14px' }}>
+                                            {contract.hirer?.first_name || contract.jobs?.profiles?.first_name} {contract.hirer?.last_name || contract.jobs?.profiles?.last_name || ''}
+                                        </p>
                                     </div>
-                                    <span className="timeline-badge" style={{ background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0', fontSize: '12px', padding: '6px 12px' }}>Accepted</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span className="timeline-badge" style={{ background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0', fontSize: '12px', padding: '6px 12px' }}>Active</span>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveMenuId(activeMenuId === contract.id ? null : contract.id);
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                                        >
+                                            <FiMoreVertical size={18} />
+                                        </button>
+
+                                        {activeMenuId === contract.id && (
+                                            <div 
+                                                className="hd-dropdown-menu"
+                                                style={{ 
+                                                    position: 'absolute', 
+                                                    top: '100%', 
+                                                    right: '0', 
+                                                    background: '#fff', 
+                                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', 
+                                                    borderRadius: '8px', 
+                                                    padding: '8px', 
+                                                    zIndex: 10,
+                                                    minWidth: '150px',
+                                                    border: '1px solid #f1f5f9'
+                                                }}
+                                            >
+                                                <button 
+                                                    onClick={() => handleCancelContract(contract.id, contract.job_id)}
+                                                    style={{ 
+                                                        width: '100%', 
+                                                        textAlign: 'left', 
+                                                        padding: '8px 12px', 
+                                                        background: 'none', 
+                                                        border: 'none', 
+                                                        color: '#ef4444', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '8px', 
+                                                        fontSize: '13px', 
+                                                        fontWeight: '500', 
+                                                        cursor: 'pointer',
+                                                        borderRadius: '4px'
+                                                    }}
+                                                >
+                                                    <FiXCircle size={14} /> Cancel Contract
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '14px', fontWeight: '500' }}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-                                        ₹{app.jobs?.budget ? app.jobs.budget.toLocaleString() : 'N/A'}
+                                        ₹{contract.agreed_amount ? contract.agreed_amount.toLocaleString() : (contract.jobs?.budget ? contract.jobs.budget.toLocaleString() : 'N/A')}
                                     </div>
-                                    <div className="gig-progress-labels" style={{ margin: 0 }}>
-                                        <span style={{ color: '#059669', fontWeight: '600', fontSize: '14px' }}>Ready to Work</span>
-                                    </div>
+                                    <button
+                                        onClick={() => openChat(contract)}
+                                        style={{ 
+                                            padding: '8px 16px', 
+                                            borderRadius: '10px', 
+                                            background: '#0f172a', 
+                                            color: '#fff', 
+                                            border: 'none', 
+                                            fontSize: '13px', 
+                                            fontWeight: '600', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '6px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <FiMessageCircle size={16} /> Chat
+                                    </button>
                                 </div>
                             </div>
                         ))
                     )}
                 </div>
             </div>
+
+            <ChatModal
+                isOpen={chatConfig.isOpen}
+                onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
+                contractId={chatConfig.contractId}
+                currentUserId={currentUser?.id}
+                otherUserName={chatConfig.otherUserName}
+            />
         </div>
     );
 }

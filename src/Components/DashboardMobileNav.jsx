@@ -36,8 +36,8 @@ export default function DashboardMobileNav({ onAddClick, isModalOpen, role }) {
       {/* 2. Browse / Chats */}
       {isHirer ? (
         <Link
-          href="/working-on-it"
-          className={`mobile-nav-item ${pathname === "/working-on-it" ? "active" : ""}`}
+          href="/messages"
+          className={`mobile-nav-item ${pathname === "/messages" ? "active" : ""}`}
         >
           <div className="nav-icon-wrap">
             <svg
@@ -105,8 +105,8 @@ export default function DashboardMobileNav({ onAddClick, isModalOpen, role }) {
         </div>
       ) : (
         <Link
-          href="/working-on-it"
-          className={`mobile-nav-item ${pathname === "/working-on-it" ? "active" : ""}`}
+          href="/messages"
+          className={`mobile-nav-item ${pathname === "/messages" ? "active" : ""}`}
         >
           <div className="nav-icon-wrap">
             <svg

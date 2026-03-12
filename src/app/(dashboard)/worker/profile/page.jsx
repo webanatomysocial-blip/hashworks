@@ -603,7 +603,7 @@ export default function WorkerProfilePage() {
                         </div>
                         <div className="stat-item">
                             <span className="stat-label">Average Rating</span>
-                            <span className="stat-value">⭐ {stats.average_rating.toFixed(1)}</span>
+                            <span className="stat-value"> {stats.average_rating.toFixed(1)}</span>
                         </div>
                     </div>
 
@@ -661,10 +661,8 @@ export default function WorkerProfilePage() {
                     </div>
 
                     <div className="profile-card delete-card" style={{ marginTop: '20px', border: '1px solid #fee2e2', padding: '20px' }}>
-                        <h3 style={{ color: '#991b1b', fontSize: '16px', marginBottom: '8px' }}>Danger Zone</h3>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
-                            Soft-deleting your account will hide your profile and applications from the platform.
-                        </p>
+                        <h3 style={{ color: '#991b1b', fontSize: '16px', marginBottom: '8px' }}>Delete Account</h3>
+                      
                         <button
                             className="delete-account-btn"
                             onClick={handleDeleteAccount}

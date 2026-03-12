@@ -52,7 +52,7 @@ export default function DashboardHeader() {
                 {isHirer ? (
                     <>
                         <Link href="/hirer" className={`d-nav-item ${pathname === '/hirer' ? 'active' : ''}`}>Dashboard</Link>
-                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Chats</Link>
+                        <Link href="/messages" className={`d-nav-item ${pathname === '/messages' ? 'active' : ''}`}>Chats</Link>
                         <button className="d-nav-item" onClick={() => (window.location.href = '/hirer/postings/create')}>Post</button>
                         <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Pay</Link>
                         <Link href="/hirer/profile" className={`d-nav-item ${pathname === '/hirer/profile' ? 'active' : ''}`}>Profile</Link>
@@ -61,7 +61,7 @@ export default function DashboardHeader() {
                     <>
                         <Link href="/worker" className={`d-nav-item ${pathname === '/worker' ? 'active' : ''}`}>Dashboard</Link>
                         <Link href="/worker/browse" className={`d-nav-item ${pathname === '/worker/browse' ? 'active' : ''}`}>Browse</Link>
-                        <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Chats</Link>
+                        <Link href="/messages" className={`d-nav-item ${pathname === '/messages' ? 'active' : ''}`}>Chats</Link>
                         <Link href="/working-on-it" className={`d-nav-item ${pathname === '/working-on-it' ? 'active' : ''}`}>Wallet</Link>
                         <Link href="/worker/profile" className={`d-nav-item ${pathname === '/worker/profile' ? 'active' : ''}`}>Profile</Link>
                     </>

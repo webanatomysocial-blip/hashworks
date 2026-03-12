@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiArrowLeft, FiMapPin, FiCalendar, FiCheck, FiX, FiBriefcase } from 'react-icons/fi';
+import { FiArrowLeft, FiMapPin, FiCalendar, FiCheck, FiX, FiBriefcase, FiMessageCircle } from 'react-icons/fi';
+import ChatModal from '@/Components/ChatModal';
 import Link from 'next/link';
 import '@/css/hirer.css';
 
@@ -39,11 +40,18 @@ function ReviewApplicantsContent() {
     const [applicants, setApplicants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+
+    // Chat State
+    const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
 
     const fetchData = useCallback(async () => {
         if (!jobId) return;
         setLoading(true);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
+
             // Fetch Job details
             const { data: jobData } = await supabase
                 .from('jobs')
@@ -52,13 +60,24 @@ function ReviewApplicantsContent() {
                 .single();
             setJob(jobData);
 
-            // Fetch Applicants (profiles + application details)
+            // Fetch Applicants (profiles + application details + contract)
             const { data: appsData } = await supabase
                 .from('applications')
-                .select('*, worker:profiles!applications_worker_id_fkey(*)')
+                .select(`
+                    *,
+                    worker:profiles!applications_worker_id_fkey(*),
+                    contracts!contracts_job_id_fkey(id, worker_id)
+                `)
                 .eq('job_id', jobId)
                 .order('created_at', { ascending: false });
-            setApplicants(appsData || []);
+            
+            // Filter contracts to match the specific worker for each application
+            const processedApps = (appsData || []).map(app => ({
+                ...app,
+                contract: app.contracts?.find(c => c.worker_id === app.worker_id)
+            }));
+
+            setApplicants(processedApps);
         } catch (err) {
             console.error('Error fetching applicants:', err);
         } finally {
@@ -73,31 +92,74 @@ function ReviewApplicantsContent() {
     const handleAction = async (appId, status) => {
         setActionLoading(appId);
         try {
-            const { error } = await supabase
-                .from('applications')
-                .update({ status })
-                .eq('id', appId);
-            if (error) throw error;
+            console.log('Handling action:', status, 'for applicant:', appId);
+            const app = applicants.find(a => a.id === appId);
+            if (!app) return;
 
-            if (status === 'accepted') {
-                const app = applicants.find(a => a.id === appId);
-                if (app) {
-                    await supabase.from('contracts').insert([{
-                        job_id: app.job_id,
-                        hirer_id: job.hirer_id,
-                        worker_id: app.worker_id,
-                        status: 'active',
-                        progress_percentage: 0
-                    }]);
-                }
+            // Only update application status if it's not already in that status
+            if (app.status !== status) {
+                const { error: updateErr } = await supabase
+                    .from('applications')
+                    .update({ status })
+                    .eq('id', appId);
+                if (updateErr) throw updateErr;
             }
 
-            setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+            if (status === 'accepted') {
+                // Check if contract already exists
+                const { data: existingContract, error: checkErr } = await supabase
+                    .from('contracts')
+                    .select('*')
+                    .eq('job_id', app.job_id)
+                    .eq('worker_id', app.worker_id)
+                    .maybeSingle();
+                
+                if (checkErr) console.error('Error checking existing contract:', checkErr);
+
+                if (existingContract) {
+                    console.log('Existing contract found:', existingContract.id);
+                    // Also ensure job status is updated
+                    await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', app.job_id);
+                    setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status, contract: existingContract } : a));
+                } else {
+                    console.log('Creating new contract...');
+                    const { data: newContract, error: contractErr } = await supabase.from('contracts').insert([{
+                        job_id: app.job_id,
+                        hirer_id: currentUser?.id,
+                        worker_id: app.worker_id,
+                        agreed_amount: app.bid_amount || job?.budget_max,
+                        status: 'active',
+                        progress_percentage: 0
+                    }]).select().single();
+
+                    if (contractErr) throw contractErr;
+
+                    // Update job status to in_progress
+                    await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', app.job_id);
+
+                    console.log('New contract created:', newContract.id);
+                    setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status, contract: newContract } : a));
+                    alert('Contract created successfully!');
+                }
+            } else {
+                setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+            }
+
         } catch (err) {
             console.error('Error handling application:', err);
-            alert(`Failed to ${status} application.`);
+            alert(`Failed to ${status} application: ${err.message || 'Unknown error'}`);
         } finally {
             setActionLoading(null);
+        }
+    };
+
+    const openChat = (app) => {
+        if (app.contract) {
+            setChatConfig({
+                isOpen: true,
+                contractId: app.contract.id,
+                otherUserName: fullName(app.worker)
+            });
         }
     };
 
@@ -150,12 +212,12 @@ function ReviewApplicantsContent() {
                                         <div className="hd-app-info">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <h4 className="hd-app-name" style={{ fontSize: '16px' }}>{fullName(p)}</h4>
-                                                <button
-                                                    onClick={() => router.push(`/profile/view/?id=${p.id}`)}
-                                                    style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
-                                                >
-                                                    View Profile
-                                                </button>
+                                                    <button
+                                                        onClick={() => router.push(`/hirer/applications/review/?id=${app.id}`)}
+                                                        style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+                                                    >
+                                                        Review Application
+                                                    </button>
                                             </div>
                                             <p className="hd-app-sub">Applied {timeAgo(app.created_at)}</p>
                                         </div>
@@ -163,37 +225,81 @@ function ReviewApplicantsContent() {
                                     </div>
 
                                     {app.cover_letter && (
-                                        <div style={{ pading: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '13px', color: '#475569', fontStyle: 'italic' }}>
+                                        <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '13px', color: '#475569', fontStyle: 'italic' }}>
                                             "{app.cover_letter}"
                                         </div>
                                     )}
 
-                                    {app.status === 'pending' && (
-                                        <div className="hd-job-card-actions" style={{ marginTop: 'auto' }}>
-                                            <button
-                                                className="hd-job-action-btn review"
-                                                onClick={() => handleAction(app.id, 'accepted')}
-                                                disabled={actionLoading === app.id}
-                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                            >
-                                                {actionLoading === app.id ? '...' : <><FiCheck size={15} /> Accept</>}
-                                            </button>
-                                            <button
-                                                className="hd-job-action-btn"
-                                                onClick={() => handleAction(app.id, 'rejected')}
-                                                disabled={actionLoading === app.id}
-                                                style={{ color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                            >
-                                                {actionLoading === app.id ? '...' : <><FiX /> Reject</>}
-                                            </button>
-                                        </div>
-                                    )}
+                                    <div className="hd-job-card-actions" style={{ marginTop: 'auto' }}>
+                                        {app.status === 'accepted' ? (
+                                            app.contract ? (
+                                                <button 
+                                                    className="hd-app-action-btn chat"
+                                                    onClick={() => openChat(app)}
+                                                    style={{ 
+                                                        background: '#2563eb', 
+                                                        borderColor: '#2563eb', 
+                                                        color: '#fff',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <FiMessageCircle size={14} /> Tap to chat with {app.worker?.first_name}
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    className="hd-app-action-btn chat"
+                                                    onClick={() => handleAction(app.id, 'accepted')}
+                                                    disabled={actionLoading === app.id}
+                                                    style={{ 
+                                                        background: '#10b981', 
+                                                        borderColor: '#10b981', 
+                                                        color: '#fff',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <FiCheck size={14} /> {actionLoading === app.id ? 'Fixing...' : 'Complete Setup'}
+                                                </button>
+                                            )
+                                        ) : app.status === 'pending' ? (
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button 
+                                                    className="hd-app-action-btn"
+                                                    onClick={() => handleAction(app.id, 'rejected')}
+                                                    disabled={actionLoading === app.id}
+                                                    style={{ color: '#ef4444' }}
+                                                >
+                                                    Reject
+                                                </button>
+                                                <button 
+                                                    className="hd-app-action-btn review"
+                                                    onClick={() => handleAction(app.id, 'accepted')}
+                                                    disabled={actionLoading === app.id}
+                                                >
+                                                    Accept
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>Rejected</span>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
                 )}
             </div>
+
+            <ChatModal
+                isOpen={chatConfig.isOpen}
+                onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
+                contractId={chatConfig.contractId}
+                currentUserId={currentUser?.id}
+                otherUserName={chatConfig.otherUserName}
+            />
         </div>
     );
 }

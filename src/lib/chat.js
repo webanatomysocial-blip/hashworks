@@ -1,0 +1,69 @@
+import { supabase } from './supabase'
+
+/**
+ * Sends a message to a specific contract.
+ */
+export async function sendMessage(contractId, senderId, content) {
+    const { data, error } = await supabase
+        .from('messages')
+        .insert([{
+            contract_id: contractId,
+            sender_id: senderId,
+            content: content
+        }])
+        .select()
+    
+    if (error) throw error
+    return data[0]
+}
+
+/**
+ * Fetches message history for a contract.
+ */
+export async function getMessages(contractId) {
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('contract_id', contractId)
+        .order('created_at', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+}
+
+/**
+ * Subscribes to new messages for a contract.
+ */
+export function subscribeToMessages(contractId, onNewMessage) {
+    return supabase
+        .channel(`messages:${contractId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `contract_id=eq.${contractId}`
+            },
+            (payload) => {
+                onNewMessage(payload.new)
+            }
+        )
+        .subscribe()
+}
+
+/**
+ * Marks all messages in a contract as read for the current user (if they are the recipient).
+ */
+export async function markMessagesAsRead(contractId, currentUserId) {
+    const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('contract_id', contractId)
+        .neq('sender_id', currentUserId)
+        .eq('is_read', false)
+    
+    if (error) {
+        console.error('Error marking messages as read:', error)
+    }
+}

@@ -7,10 +7,12 @@ import ConfirmModal from '@/Components/ConfirmModal.jsx';
 import {
     FiBriefcase, FiUsers, FiCreditCard, FiChevronRight,
     FiPlus, FiEdit2, FiStar, FiBookmark, FiActivity,
-    FiFileText
+    FiFileText, FiMessageCircle, FiMoreVertical, FiXCircle
 } from 'react-icons/fi';
 import { BsFillPersonFill } from 'react-icons/bs';
 import '@/css/hirer.css';
+import ChatModal from '@/Components/ChatModal.jsx';
+import { useRouter } from 'next/navigation';
 
 /* helper: full name from profile */
 function fullName(p) {
@@ -52,6 +54,13 @@ export default function HirerDashboard() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [jobToDelete, setJobToDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const router = useRouter();
+
+    /* menu state */
+    const [activeMenuId, setActiveMenuId] = useState(null);
+
+    /* chat modal */
+    const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -160,6 +169,29 @@ export default function HirerDashboard() {
     /* navigate to edit page */
     const handleEdit = (job) => {
         router.push(`/hirer/postings/edit/?id=${job.id}`);
+    };
+
+    const handleCancelContract = async (contractId, jobId) => {
+        if (!confirm('Are you sure you want to cancel this contract?')) return;
+        try {
+            const { error: contractErr } = await supabase
+                .from('contracts')
+                .update({ status: 'cancelled' })
+                .eq('id', contractId);
+            if (contractErr) throw contractErr;
+
+            // Optional: Set job back to active if it was in_progress
+            await supabase
+                .from('jobs')
+                .update({ status: 'active' })
+                .eq('id', jobId);
+
+            setContracts(prev => prev.filter(c => c.id !== contractId));
+            setActiveMenuId(null);
+        } catch (err) {
+            console.error('Error cancelling contract:', err);
+            alert('Failed to cancel contract: ' + err.message);
+        }
     };
 
     if (loading) return <div className="loading-state">Loading …</div>;
@@ -293,7 +325,7 @@ export default function HirerDashboard() {
                     pendingApps.slice(0, 4).map(app => {
                         const w = app.worker;
                         return (
-                            <div key={app.id} className="hd-app-item">
+                            <Link key={app.id} href={`/hirer/applications/review/?id=${app.id}`} className="hd-app-item" style={{ textDecoration: 'none', color: 'inherit' }}>
                                 <div className="hd-app-avatar">
                                     {w?.avatar_url
                                         ? <img src={w.avatar_url} alt={fullName(w)} />
@@ -305,10 +337,8 @@ export default function HirerDashboard() {
                                         Applied for {app.jobs?.title || 'a job'} · {timeAgo(app.created_at)}
                                     </p>
                                 </div>
-                                <Link href={`/hirer/postings/review/?id=${app.job_id}`} style={{ color: '#4b5563', display: 'flex' }}>
-                                    <FiChevronRight className="hd-app-chevron" />
-                                </Link>
-                            </div>
+                                <FiChevronRight className="hd-app-chevron" />
+                            </Link>
                         );
                     })
                 )}
@@ -346,9 +376,62 @@ export default function HirerDashboard() {
 
                             return (
                                 <div key={contract.id} className="hd-gig-card">
-                                    <div className="hd-gig-top">
+                                    <div className="hd-gig-top" style={{ position: 'relative' }}>
                                         <h3 className="hd-gig-title">{contract.jobs?.title || 'Untitled Gig'}</h3>
-                                        <span className={`hd-urgency-badge ${urgency}`}>{dueText}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span className={`hd-urgency-badge ${urgency}`}>{dueText}</span>
+                                            <button 
+                                                className="hd-menu-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveMenuId(activeMenuId === contract.id ? null : contract.id);
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                                            >
+                                                <FiMoreVertical size={18} />
+                                            </button>
+
+                                            {activeMenuId === contract.id && (
+                                                <div 
+                                                    className="hd-dropdown-menu"
+                                                    style={{ 
+                                                        position: 'absolute', 
+                                                        top: '100%', 
+                                                        right: '0', 
+                                                        background: '#fff', 
+                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06)', 
+                                                        borderRadius: '8px', 
+                                                        padding: '8px', 
+                                                        zIndex: 10,
+                                                        minWidth: '150px',
+                                                        border: '1px solid #f1f5f9'
+                                                    }}
+                                                >
+                                                    <button 
+                                                        onClick={() => handleCancelContract(contract.id, contract.job_id)}
+                                                        style={{ 
+                                                            width: '100%', 
+                                                            textAlign: 'left', 
+                                                            padding: '8px 12px', 
+                                                            background: 'none', 
+                                                            border: 'none', 
+                                                            color: '#ef4444', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            gap: '8px', 
+                                                            fontSize: '13px', 
+                                                            fontWeight: '500', 
+                                                            cursor: 'pointer',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.target.style.background = '#fef2f2'}
+                                                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                                                    >
+                                                        <FiXCircle size={14} /> Cancel Contract
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <p className="hd-gig-worker">
                                         Assigned To: <strong>{fullName(w)}</strong>
@@ -359,6 +442,34 @@ export default function HirerDashboard() {
                                     </div>
                                     <div className="hd-progress-bar">
                                         <div className="hd-progress-fill" style={{ width: `${progress}%` }} />
+                                    </div>
+                                    <div className="hd-gig-footer" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', marginTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button 
+                                            className="hd-app-action-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setChatConfig({
+                                                    isOpen: true,
+                                                    contractId: contract.id,
+                                                    otherUserName: fullName(w)
+                                                });
+                                            }}
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '6px', 
+                                                fontSize: '12px', 
+                                                background: '#2563eb', 
+                                                color: '#fff',
+                                                padding: '8px 12px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                fontWeight: '600',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <FiMessageCircle size={14} /> Tap to Chat
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -464,6 +575,14 @@ export default function HirerDashboard() {
                 message="Are you sure you want to delete this job? This will remove all associated applications."
                 confirmText="Delete Job"
                 loading={deleteLoading}
+            />
+
+            <ChatModal
+                isOpen={chatConfig.isOpen}
+                onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
+                contractId={chatConfig.contractId}
+                currentUserId={userId}
+                otherUserName={chatConfig.otherUserName}
             />
         </div>
     );
