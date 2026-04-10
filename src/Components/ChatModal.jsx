@@ -16,9 +16,10 @@ export default function ChatModal({ isOpen, onClose, contractId, currentUserId, 
                         </div>
                         <div>
                             <h3 className="chat-user-name">{otherUserName || 'Chat'}</h3>
+                            <div className="chat-status-active">Active Project</div>
                         </div>
                     </div>
-                    <button className="chat-close-btn" onClick={onClose}>
+                    <button className="chat-close-btn" onClick={onClose} title="Close chat">
                         <FiX size={20} />
                     </button>
                 </header>
@@ -40,23 +41,33 @@ export default function ChatModal({ isOpen, onClose, contractId, currentUserId, 
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: rgba(0, 0, 0, 0.4);
+                    background: rgba(15, 23, 42, 0.4);
                     display: flex;
                     justify-content: center;
                     align-items: flex-end;
                     z-index: 2000;
-                    backdrop-filter: blur(4px);
+                    backdrop-filter: blur(8px);
+                    animation: fadeIn 0.3s ease-out;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
                 }
                 .chat-container {
                     width: 100%;
-                    max-width: 500px;
-                    height: 80vh;
+                    max-width: 550px;
+                    height: 85vh;
                     background: #fff;
-                    border-radius: 24px 24px 0 0;
+                    border-radius: 32px 32px 0 0;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
-                    box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+                    box-shadow: 0 -20px 50px rgba(15, 23, 42, 0.15);
+                    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
                 }
                 @media (min-width: 768px) {
                     .chat-overlay {
@@ -64,59 +75,62 @@ export default function ChatModal({ isOpen, onClose, contractId, currentUserId, 
                     }
                     .chat-container {
                         border-radius: 24px;
-                        height: 600px;
+                        height: 700px;
+                        margin: 20px;
                     }
                 }
                 .chat-header {
-                    padding: 16px 20px;
+                    padding: 20px 24px;
                     border-bottom: 1px solid #f1f5f9;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    background: #fff;
                 }
                 .chat-user-info {
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 14px;
                 }
                 .chat-avatar {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    background: #0f172a;
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 14px;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
                     color: #fff;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-weight: 700;
+                    font-size: 16px;
                 }
                 .chat-user-name {
-                    font-size: 15px;
-                    font-weight: 700;
+                    font-size: 16px;
+                    font-weight: 800;
                     color: #0f172a;
                     margin: 0;
                 }
-                .chat-status {
+                .chat-status-active {
                     font-size: 11px;
-                    color: #10b981;
+                    color: #64748b;
                     font-weight: 600;
                     display: flex;
                     align-items: center;
                     gap: 4px;
                 }
-                .chat-status::before {
+                .chat-status-active::before {
                     content: '';
                     width: 6px;
                     height: 6px;
-                    background: currentColor;
+                    background: #10b981;
                     border-radius: 50%;
                 }
                 .chat-close-btn {
                     background: #f8fafc;
-                    border: none;
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
+                    border: 1px solid #f1f5f9;
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 12px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -125,8 +139,10 @@ export default function ChatModal({ isOpen, onClose, contractId, currentUserId, 
                     transition: all 0.2s;
                 }
                 .chat-close-btn:hover {
-                    background: #f1f5f9;
-                    color: #0f172a;
+                    background: #ef4444;
+                    color: #fff;
+                    border-color: #ef4444;
+                    transform: rotate(90deg);
                 }
                 .chat-modal-content {
                     flex: 1;

@@ -67,3 +67,34 @@ export async function markMessagesAsRead(contractId, currentUserId) {
         console.error('Error marking messages as read:', error)
     }
 }
+
+/**
+ * Fetches the last message for a specific contract.
+ */
+export async function getLastMessage(contractId) {
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('contract_id', contractId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    
+    if (error) throw error
+    return data
+}
+
+/**
+ * Gets the number of unread messages for a specific user in a contract.
+ */
+export async function getUnreadCount(contractId, userId) {
+    const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('contract_id', contractId)
+        .neq('sender_id', userId)
+        .eq('is_read', false)
+    
+    if (error) throw error
+    return count || 0
+}

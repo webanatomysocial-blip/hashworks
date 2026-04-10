@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiMessageSquare } from 'react-icons/fi';
+import { FiSend, FiMessageSquare, FiClock } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import { getMessages, sendMessage, subscribeToMessages, markMessagesAsRead } from '@/lib/chat';
 
@@ -31,7 +31,6 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
         const subscription = subscribeToMessages(contractId, (msg) => {
             setMessages((prev) => {
-                // Prevent duplicate messages if already present
                 if (prev.some(m => m.id === msg.id)) return prev;
                 return [...prev, msg];
             });
@@ -60,23 +59,47 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
         try {
             const sentMsg = await sendMessage(contractId, currentUserId, content);
-            // Optimistically add to list if subscription is slow, 
-            // but the subscription check in useEffect handles duplicates
             setMessages(prev => {
                 if (prev.some(m => m.id === sentMsg.id)) return prev;
                 return [...prev, sentMsg];
             });
         } catch (err) {
             console.error('Failed to send message:', err);
-            alert('Failed to send message.');
         }
+    };
+
+    const formatTime = (dateStr) => {
+        return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const isDifferentDay = (idx) => {
+        if (idx === 0) return true;
+        const prevMsg = messages[idx - 1];
+        const currMsg = messages[idx];
+        const d1 = new Date(prevMsg.created_at).toDateString();
+        const d2 = new Date(currMsg.created_at).toDateString();
+        return d1 !== d2;
+    };
+
+    const getDateLabel = (dateStr) => {
+        const d = new Date(dateStr);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
     };
 
     if (!contractId) {
         return (
             <div className="chat-empty-state">
-                <FiMessageSquare size={48} />
-                <h3>Select a conversation to start chatting</h3>
+                <div className="empty-icon-pulse">
+                    <FiMessageSquare size={54} />
+                </div>
+                <h3>Start a Conversation</h3>
+                <p>Choose an active contract to begin chatting.</p>
             </div>
         );
     }
@@ -91,6 +114,7 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                         </div>
                         <div>
                             <h3 className="chat-user-name">{otherUserName || 'Chat'}</h3>
+                            <div className="chat-online-dot">Online</div>
                         </div>
                     </div>
                 </header>
@@ -98,38 +122,51 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
             <div className="chat-messages" ref={scrollRef}>
                 {loading ? (
-                    <div className="chat-loading">Loading messages...</div>
+                    <div className="chat-loading-skeleton">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className={`skeleton-bubble ${i % 2 === 0 ? 'left' : 'right'}`} />
+                        ))}
+                    </div>
                 ) : messages.length === 0 ? (
-                    <div className="chat-empty">No messages yet. Start the conversation!</div>
+                    <div className="chat-empty-convo">
+                        <div className="convo-start-msg">
+                            <FiClock size={24} />
+                            <p>No messages yet. Send a message to start the project!</p>
+                        </div>
+                    </div>
                 ) : (
-                    messages.map((msg) => (
-                        <div
-                            key={msg.id}
-                            className={`chat-bubble-wrap ${msg.sender_id === currentUserId ? 'sent' : 'received'}`}
-                        >
-                            <div className="chat-bubble">
-                                {msg.content}
-                                <span className="chat-time">
-                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                    messages.map((msg, idx) => (
+                        <div key={msg.id}>
+                            {isDifferentDay(idx) && (
+                                <div className="date-separator">
+                                    <span>{getDateLabel(msg.created_at)}</span>
+                                </div>
+                            )}
+                            <div className={`chat-bubble-wrap ${msg.sender_id === currentUserId ? 'sent' : 'received'}`}>
+                                <div className="chat-bubble">
+                                    <p>{msg.content}</p>
+                                    <span className="chat-time">{formatTime(msg.created_at)}</span>
+                                </div>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            <form className="chat-input-area" onSubmit={handleSend}>
-                <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    autoFocus
-                />
-                <button type="submit" disabled={!newMessage.trim()}>
-                    <FiSend size={18} />
-                </button>
-            </form>
+            <div className="chat-bottom-bar">
+                <form className="chat-input-area" onSubmit={handleSend}>
+                    <input
+                        type="text"
+                        placeholder="Write a message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        autoFocus
+                    />
+                    <button type="submit" disabled={!newMessage.trim()} title="Send message">
+                        <FiSend size={20} />
+                    </button>
+                </form>
+            </div>
 
             <style jsx>{`
                 .chat-view-container {
@@ -140,8 +177,10 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     position: relative;
                 }
                 .chat-view-header {
-                    padding: 16px 20px;
+                    padding: 16px 24px;
+                    background: #fff;
                     border-bottom: 1px solid #f1f5f9;
+                    z-index: 10;
                 }
                 .chat-user-info {
                     display: flex;
@@ -149,50 +188,94 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     gap: 12px;
                 }
                 .chat-avatar {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    background: #0f172a;
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
                     color: #fff;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-weight: 700;
-                    font-size: 14px;
+                    font-size: 16px;
+                    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
                 }
                 .chat-user-name {
-                    font-size: 14px;
-                    font-weight: 700;
+                    font-size: 15px;
+                    font-weight: 800;
                     color: #0f172a;
                     margin: 0;
                 }
-                .chat-status {
-                    font-size: 10px;
+                .chat-online-dot {
+                    font-size: 11px;
                     color: #10b981;
-                    font-weight: 600;
                     display: flex;
                     align-items: center;
                     gap: 4px;
+                    font-weight: 600;
                 }
-                .chat-status::before {
+                .chat-online-dot::before {
                     content: '';
-                    width: 5px;
-                    height: 5px;
-                    background: currentColor;
+                    width: 6px;
+                    height: 6px;
+                    background: #10b981;
                     border-radius: 50%;
                 }
                 .chat-messages {
                     flex: 1;
                     overflow-y: auto;
-                    padding: 20px;
+                    padding: 24px;
                     display: flex;
                     flex-direction: column;
-                    gap: 12px;
+                    gap: 8px;
                     background: #f8fafc;
+                    scroll-behavior: smooth;
+                }
+                .chat-messages::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .chat-messages::-webkit-scrollbar-thumb {
+                    background: #e2e8f0;
+                    border-radius: 10px;
+                }
+                .date-separator {
+                    display: flex;
+                    justify-content: center;
+                    margin: 20px 0;
+                    position: relative;
+                }
+                .date-separator::before {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    left: 0;
+                    right: 0;
+                    height: 1px;
+                    background: #e2e8f0;
+                    z-index: 1;
+                }
+                .date-separator span {
+                    background: #f8fafc;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #94a3b8;
+                    position: relative;
+                    z-index: 2;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    border: 1px solid #f1f5f9;
                 }
                 .chat-bubble-wrap {
                     display: flex;
                     width: 100%;
+                    margin-bottom: 12px;
+                    animation: slideUp 0.3s ease-out;
+                }
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
                 .chat-bubble-wrap.sent {
                     justify-content: flex-end;
@@ -201,47 +284,71 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     justify-content: flex-start;
                 }
                 .chat-bubble {
-                    max-width: 85%;
-                    padding: 10px 14px;
-                    border-radius: 16px;
+                    max-width: 80%;
+                    padding: 12px 16px;
+                    border-radius: 18px;
                     font-size: 14px;
                     line-height: 1.5;
                     position: relative;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
                 }
                 .sent .chat-bubble {
-                    background: #0f172a;
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
                     color: #fff;
                     border-bottom-right-radius: 4px;
                 }
                 .received .chat-bubble {
-                    background: #fff;
-                    color: #0f172a;
+                    background: #ffffff;
+                    color: #1e293b;
                     border-bottom-left-radius: 4px;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                    border: 1px solid #eef2f6;
+                }
+                .chat-bubble p {
+                    margin: 0;
+                    word-wrap: break-word;
                 }
                 .chat-time {
                     display: block;
-                    font-size: 9px;
-                    margin-top: 4px;
-                    opacity: 0.7;
+                    font-size: 10px;
+                    margin-top: 5px;
+                    opacity: 0.6;
                     text-align: right;
                 }
-                .chat-input-area {
-                    padding: 16px;
+                .sent .chat-time {
+                    color: rgba(255,255,255,0.8);
+                }
+                .chat-bottom-bar {
+                    padding: 20px 24px;
+                    background: #fff;
                     border-top: 1px solid #f1f5f9;
+                }
+                .chat-input-area {
                     display: flex;
-                    gap: 10px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 14px;
+                    padding: 6px;
+                    align-items: center;
+                    transition: all 0.2s;
+                    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+                }
+                .chat-input-area:focus-within {
+                    border-color: #0f172a;
+                    background: #fff;
+                    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
                 }
                 .chat-input-area input {
                     flex: 1;
-                    padding: 10px 16px;
-                    border-radius: 12px;
-                    border: 1px solid #e2e8f0;
+                    padding: 8px 12px;
+                    border: none;
+                    background: transparent;
                     font-size: 14px;
+                    color: #0f172a;
+                    outline: none;
                 }
                 .chat-input-area button {
-                    width: 40px;
-                    height: 40px;
+                    width: 38px;
+                    height: 38px;
                     border-radius: 10px;
                     background: #0f172a;
                     color: #fff;
@@ -250,6 +357,16 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .chat-input-area button:hover {
+                    background: #334155;
+                    transform: scale(1.05);
+                }
+                .chat-input-area button:disabled {
+                    background: #cbd5e1;
+                    cursor: not-allowed;
+                    transform: none;
                 }
                 .chat-empty-state {
                     height: 100%;
@@ -257,14 +374,79 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
+                    background: #f8fafc;
+                    color: #64748b;
+                    padding: 40px;
+                    text-align: center;
+                }
+                .empty-icon-pulse {
+                    width: 100px;
+                    height: 100px;
+                    background: #fff;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 24px;
+                    color: #e2e8f0;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0% { transform: scale(1); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+                    50% { transform: scale(1.05); box-shadow: 0 10px 35px rgba(0,0,0,0.08); }
+                    100% { transform: scale(1); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+                }
+                .chat-empty-state h3 {
+                    font-size: 20px;
+                    font-weight: 800;
+                    color: #0f172a;
+                    margin: 0 0 10px 0;
+                }
+                .chat-empty-state p {
+                    font-size: 14px;
+                    max-width: 250px;
+                    margin: 0;
+                }
+                .chat-empty-convo {
+                    padding: 40px;
+                    display: flex;
+                    justify-content: center;
+                }
+                .convo-start-msg {
+                    background: #fff;
+                    padding: 24px;
+                    border-radius: 20px;
+                    border: 1px dashed #e2e8f0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 12px;
                     color: #94a3b8;
+                    text-align: center;
+                }
+                .convo-start-msg p {
+                    font-size: 13px;
+                    margin: 0;
+                    font-weight: 500;
+                }
+                .chat-loading-skeleton {
+                    display: flex;
+                    flex-direction: column;
                     gap: 16px;
                 }
-                .chat-loading, .chat-empty {
-                    text-align: center;
-                    padding: 40px;
-                    color: #94a3b8;
-                    font-size: 13px;
+                .skeleton-bubble {
+                    height: 50px;
+                    border-radius: 18px;
+                    background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+                    background-size: 200% 100%;
+                    animation: shimmer 1.5s infinite;
+                }
+                .skeleton-bubble.left { width: 60%; align-self: flex-start; }
+                .skeleton-bubble.right { width: 70%; align-self: flex-end; }
+                @keyframes shimmer {
+                    from { background-position: 200% 0; }
+                    to { background-position: -200% 0; }
                 }
             `}</style>
         </div>

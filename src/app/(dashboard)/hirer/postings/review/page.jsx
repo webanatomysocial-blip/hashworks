@@ -66,15 +66,15 @@ function ReviewApplicantsContent() {
                 .select(`
                     *,
                     worker:profiles!applications_worker_id_fkey(*),
-                    contracts!contracts_job_id_fkey(id, worker_id)
+                    contracts!contracts_job_id_fkey(id, worker_id, status)
                 `)
                 .eq('job_id', jobId)
                 .order('created_at', { ascending: false });
             
-            // Filter contracts to match the specific worker for each application
+            // Filter contracts to match the specific worker and be active
             const processedApps = (appsData || []).map(app => ({
                 ...app,
-                contract: app.contracts?.find(c => c.worker_id === app.worker_id)
+                contract: app.contracts?.find(c => c.worker_id === app.worker_id && c.status === 'active')
             }));
 
             setApplicants(processedApps);
