@@ -1,204 +1,176 @@
+/* Location Modal Styles */
 .location-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
 }
 
 .location-modal-content {
-    background: #fff;
-    width: 100%;
-    max-width: 440px;
-    border-radius: 24px;
-    padding: 32px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
+  background: white;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 32px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
+  max-height: 92vh;
+  overflow-y: auto;
+  transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Wider modal for the map step */
+.location-modal-wide {
+  max-width: 560px;
+}
+
+/* ── Header ── */
 .lm-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .lm-back {
-    background: #f8fafc;
-    border: none;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    margin-right: 20px;
-    transition: background 0.2s;
-    color: #0f172a;
-    font-size: 20px;
+  background: #f1f5f9;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
-
-.lm-back:hover {
-    background: #f1f5f9;
-}
+.lm-back:hover { background: #e2e8f0; }
 
 .lm-header h2 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
 }
 
-.lm-section {
-    margin-bottom: 32px;
+/* ── Choice cards ── */
+.lm-option-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.lm-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: #64748b;
-    letter-spacing: 0.05em;
-    margin-bottom: 16px;
-    text-transform: uppercase;
+.lm-option-card {
+  background: #f8fafc;
+  border: 2px solid transparent;
+  padding: 22px 20px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lm-option-card:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  transform: translateY(-1px);
+}
+.lm-option-card:active {
+  transform: translateY(0);
 }
 
-.lm-gps-btn {
-    width: 100%;
-    background: #111827;
-    color: #fff;
-    border: none;
-    padding: 16px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
+.lm-opt-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0047ff;
+  box-shadow: 0 4px 8px rgba(0, 71, 255, 0.1);
+  flex-shrink: 0;
 }
 
-.lm-gps-btn:hover {
-    background: #000;
+.lm-opt-text h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 3px 0;
+}
+.lm-opt-text p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
 }
 
-.lm-gps-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+/* ── GPS detecting ── */
+.lm-gps-detecting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 0 8px;
 }
 
-.lm-search-wrapper {
-    position: relative;
+.lm-selected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 8px 0;
 }
 
-.lm-search-icon {
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #64748b;
-    font-size: 20px;
-}
-
-.lm-search-input {
-    width: 100%;
-    padding: 16px 16px 16px 48px;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
-}
-
-.lm-search-input:focus {
-    border-color: #3b82f6;
-}
-
-.lm-search-results {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    margin-top: 8px;
-    max-height: 180px;
-    overflow-y: auto;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-}
-
-.lm-result-item {
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 14px;
-    color: #334155;
-}
-
-.lm-result-item:last-child {
-    border-bottom: none;
-}
-
-.lm-result-item:hover {
-    background: #f8fafc;
-}
-
-.lm-result-icon {
-    color: #64748b;
-    flex-shrink: 0;
-}
-
-.lm-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.lm-chip {
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
-    padding: 8px 16px;
-    border-radius: 100px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #0f172a;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.lm-chip:hover {
-    background: #e2e8f0;
-}
-
+/* ── Confirm button ── */
 .lm-confirm-btn {
-    width: 100%;
-    background: #111827;
-    color: #fff;
-    border: none;
-    padding: 18px;
-    border-radius: 20px;
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 16px;
-    transition: all 0.2s;
+  background: linear-gradient(135deg, #0047ff 0%, #0033cc 100%);
+  color: white;
+  border: none;
+  width: 100%;
+  padding: 18px;
+  border-radius: 18px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 71, 255, 0.25);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.lm-confirm-btn:hover {
-    background: #000;
+.lm-confirm-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(0, 71, 255, 0.3);
 }
-
 .lm-confirm-btn:disabled {
-    background: #e2e8f0;
-    color: #94a3b8;
-    cursor: not-allowed;
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── Leaflet override: keep map below modal header ── */
+.leaflet-container {
+  font-family: inherit;
+}
+.leaflet-control-zoom {
+  border-radius: 12px !important;
+  overflow: hidden;
+  border: 1px solid #e2e8f0 !important;
+}
+.leaflet-control-zoom a {
+  font-size: 16px !important;
+  line-height: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
 }

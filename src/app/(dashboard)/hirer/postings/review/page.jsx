@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { FiArrowLeft, FiMapPin, FiCalendar, FiCheck, FiX, FiBriefcase, FiMessageCircle } from 'react-icons/fi';
-import ChatModal from '@/Components/ChatModal';
+import HashLoader from '@/Components/common/HashLoader';
 import Link from 'next/link';
 import '@/css/hirer.css';
 
@@ -41,9 +41,6 @@ function ReviewApplicantsContent() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
-
-    // Chat State
-    const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
 
     const fetchData = useCallback(async () => {
         if (!jobId) return;
@@ -155,16 +152,12 @@ function ReviewApplicantsContent() {
 
     const openChat = (app) => {
         if (app.contract) {
-            setChatConfig({
-                isOpen: true,
-                contractId: app.contract.id,
-                otherUserName: fullName(app.worker)
-            });
+            router.push(`/messages?contract=${app.contract.id}`);
         }
     };
 
     if (!jobId) return <div className="loading-state">No Job ID provided.</div>;
-    if (loading) return <div className="loading-state">Loading applicants...</div>;
+    if (loading) return <HashLoader text="" />;
     if (!job) return <div className="loading-state">Job not found.</div>;
 
     return (
@@ -261,7 +254,7 @@ function ReviewApplicantsContent() {
                                                         gap: '6px'
                                                     }}
                                                 >
-                                                    <FiCheck size={14} /> {actionLoading === app.id ? 'Fixing...' : 'Complete Setup'}
+                                                    <FiCheck size={14} /> {actionLoading === app.id ? <HashLoader text="" /> : 'Complete Setup'}
                                                 </button>
                                             )
                                         ) : app.status === 'pending' ? (
@@ -292,21 +285,13 @@ function ReviewApplicantsContent() {
                     </div>
                 )}
             </div>
-
-            <ChatModal
-                isOpen={chatConfig.isOpen}
-                onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
-                contractId={chatConfig.contractId}
-                currentUserId={currentUser?.id}
-                otherUserName={chatConfig.otherUserName}
-            />
         </div>
     );
 }
 
 export default function ReviewApplicants() {
     return (
-        <Suspense fallback={<div className="loading-state">Loading...</div>}>
+        <Suspense fallback={<HashLoader text="" />}>
             <ReviewApplicantsContent />
         </Suspense>
     );

@@ -3,827 +3,253 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { FiMoreVertical, FiXCircle, FiMessageCircle } from "react-icons/fi";
-import ChatModal from "@/Components/ChatModal.jsx";
+import { FiSearch, FiBookmark } from "react-icons/fi";
+import { calculateDistance } from "@/lib/location";
+import HashLoader from "@/Components/common/HashLoader";
 import "@/css/worker.css";
-import "@/css/hirer.css";
 
-export default function WorkerDashboard() {
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Card } from "@/Components/ui/Card";
+import ActiveGigCard from "@/Components/worker/ActiveGigCard";
+import SummaryStats from "@/Components/worker/SummaryStats";
+import UrgentJobsList from "@/Components/worker/UrgentJobsList";
+import LatestChatsList from "@/Components/worker/LatestChatsList";
+import DiscoveryStack from "@/Components/worker/discovery/DiscoveryStack";
+import { useStats } from "@/Components/providers/StatsProvider";
+import { Button } from "@/Components/ui/Button";
+
+export default function WorkerDashboardHome() {
   const router = useRouter();
-  const [userId, setUserId] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [allJobs, setAllJobs] = useState([]);
-  const [savedJobs, setSavedJobs] = useState([]);
-  const [myApplications, setMyApplications] = useState([]);
-  const [activeContracts, setActiveContracts] = useState([]);
+  const { stats } = useStats();
+  const [activeGig, setActiveGig] = useState(null);
+  const [urgentJobs, setUrgentJobs] = useState([]);
+  const [recommendedJobs, setRecommendedJobs] = useState([]);
+  const [latestChats, setLatestChats] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [applyingJobId, setApplyingJobId] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  /* menu state */
-  const [activeMenuId, setActiveMenuId] = useState(null);
-
-  /* chat modal */
-  const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
-
-  const fullName = (p) => {
-    if (!p) return 'Unknown';
-    return [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username || 'Unknown';
-  };
-
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const [activeToggle, setActiveToggle] = useState("findWork");
+  const [profile, setProfile] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/auth/login"); return; }
 
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      setProfile(profileData);
-
-      // Fetch active contracts
-      const { data: contractData } = await supabase
-        .from("contracts")
-        .select("*, jobs(*, profiles!jobs_hirer_id_fkey(*)), hirer:profiles!contracts_hirer_id_fkey(*)")
-        .eq("worker_id", user.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
-      setActiveContracts(contractData || []);
-
-      // Fetch ALL active jobs for "Recommended Gigs" (excluding user's own)
-      let jobsQuery = supabase
-        .from("jobs")
-        .select("*, profiles!jobs_hirer_id_fkey(first_name, last_name)")
-        .eq("status", "active")
-        .neq("hirer_id", user.id);
-
-      if (profileData?.city) {
-        jobsQuery = jobsQuery.or(
-          `location_type.eq.remote,and(location_type.eq.onsite,city.ilike.%${profileData.city}%)`,
-        );
-      }
-
-      const { data: jobsData } = await jobsQuery.order("created_at", {
-        ascending: false,
-      });
-      setAllJobs(jobsData || []);
-
-      // Fetch saved jobs
-      const { data: savedData } = await supabase
-        .from("saved_jobs")
-        .select(
-          "*, jobs(*, profiles!jobs_hirer_id_fkey(first_name, last_name))",
-        )
-        .eq("worker_id", user.id);
-      setSavedJobs(savedData || []);
-
-      // Fetch MY applications
-      const { data: appsData, error: appsError } = await supabase
-        .from("applications")
-        .select(
-          "*, jobs(*, profiles!jobs_hirer_id_fkey(first_name, last_name))",
-        )
-        .eq("worker_id", user.id)
-        .order("created_at", { ascending: false });
-      if (appsError)
-        console.error("Error fetching my applications:", appsError);
-      setMyApplications(appsData || []);
-    } catch (err) {
-      console.error("Error fetching worker data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleSaveJob = async (jobId) => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const alreadySaved = savedJobs.some((s) => s.job_id === jobId);
-      if (alreadySaved) {
-        await supabase
-          .from("saved_jobs")
-          .delete()
-          .eq("job_id", jobId)
-          .eq("worker_id", user.id);
-        setSavedJobs((prev) => prev.filter((s) => s.job_id !== jobId));
-      } else {
-        const { data } = await supabase
-          .from("saved_jobs")
-          .insert([{ job_id: jobId, worker_id: user.id }])
-          .select("*, jobs(*, profiles(full_name))");
-        if (data) setSavedJobs((prev) => [...prev, ...data]);
-      }
-    } catch (err) {
-      console.error("Error toggling saved job:", err);
-    }
-  };
-
-  const handleApply = async (job) => {
-    if (job.hirer_id === userId) {
-      showToast("You can't apply to your own job listing.", "error");
-      return;
-    }
-    if (myApplications.some((a) => a.job_id === job.id)) {
-      showToast("You have already applied for this job.", "error");
-      return;
-    }
-
-    setApplyingJobId(job.id);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Profile Completeness Check
+      // Fetch Profile
       const { data: prof } = await supabase
-        .from("profiles")
-        .select("bio")
-        .eq("id", user.id)
-        .single();
-      const { count: skillCount } = await supabase
-        .from("worker_skills")
-        .select("*", { count: "exact", head: true })
-        .eq("worker_id", user.id);
+          .from('profiles').select('*').eq('id', user.id).single();
+      setProfile(prof);
 
-      if (!prof?.bio || skillCount === 0) {
-        showToast(
-          "Please complete your profile (Bio & Skills) before applying.",
-          "error",
-        );
-        router.push("/worker/profile");
-        return;
-      }
+      // Active contract
+      const { data: contractsData } = await supabase
+        .from("contracts")
+        .select(`*, jobs(*), hirer:profiles!contracts_hirer_id_fkey(first_name, last_name, avatar_url)`)
+        .eq("worker_id", user.id).eq("status", "active")
+        .order("created_at", { ascending: false }).limit(1);
+      if (contractsData?.[0]) setActiveGig(contractsData[0]);
 
-      const { data: appData, error } = await supabase
-        .from("applications")
-        .insert([
-          {
-            job_id: job.id,
-            worker_id: user.id,
-            status: "pending",
-          },
-        ])
-        .select(
-          "*, jobs(*, profiles!jobs_hirer_id_fkey(first_name, last_name))",
-        )
-        .single();
-
-      if (error) {
-        console.error("Apply error:", error);
-        if (
-          error.code === "23505" ||
-          error.message.includes("duplicate key value")
-        ) {
-          showToast("You have already applied for this job.", "error");
-        } else {
-          showToast("Failed to apply: " + error.message, "error");
+      // Urgent jobs
+      const { data: urgentData } = await supabase
+        .from("jobs")
+        .select("id, title, description, budget_min, budget_max, city, subcity, urgency, role_type, location_type, created_at, estimated_minutes, latitude, longitude")
+        .in("urgency", ["immediate", "high"]).eq("status", "active")
+        .order("created_at", { ascending: false }).limit(8);
+        
+      const urgentWithDistance = (urgentData || []).map(job => {
+        if (prof?.latitude && prof?.longitude && job.latitude && job.longitude) {
+          const dist = calculateDistance(prof.latitude, prof.longitude, job.latitude, job.longitude);
+          return { ...job, distance: dist };
         }
-      } else {
-        setMyApplications((prev) => [appData, ...prev]);
-        showToast("Application submitted successfully!", "success");
+        return job;
+      });
+      setUrgentJobs(urgentWithDistance);
+
+      // Fetch IDs of jobs the worker has already interaction with (saved or rejected)
+      const { data: savedData } = await supabase.from("saved_jobs").select("job_id").eq("worker_id", user.id);
+      const { data: rejectedData } = await supabase.from("rejected_jobs").select("job_id").eq("worker_id", user.id);
+      
+      const seenJobIds = [
+        ...(savedData?.map(s => s.job_id) || []),
+        ...(rejectedData?.map(r => r.job_id) || [])
+      ];
+
+      // Recommended jobs for Discovery Stack (filtered to remove seen jobs)
+      let discoveryQuery = supabase
+        .from("jobs")
+        .select("*, profiles!jobs_hirer_id_fkey(first_name, last_name, avatar_url)")
+        .eq("status", "active")
+        .gte("start_date", new Date().toISOString().split('T')[0]); 
+      
+      if (seenJobIds.length > 0) {
+        discoveryQuery = discoveryQuery.not("id", "in", `(${seenJobIds.join(',')})`);
       }
-    } catch (err) {
-      console.error("Error applying to job:", err);
-      showToast("An error occurred while applying.", "error");
-    } finally {
-      setApplyingJobId(null);
-    }
-  };
 
-  const handleWithdraw = async (applicationId) => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: discoveryData } = await discoveryQuery
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-      const { error } = await supabase
-        .from("applications")
-        .delete()
-        .eq("id", applicationId)
-        .eq("worker_id", user.id);
+      const discoveryWithDistance = (discoveryData || []).map(job => {
+        if (prof?.latitude && prof?.longitude && job.latitude && job.longitude) {
+          const dist = calculateDistance(prof.latitude, prof.longitude, job.latitude, job.longitude);
+          return { ...job, distance: dist };
+        }
+        return job;
+      });
+      setRecommendedJobs(discoveryWithDistance);
 
-      if (error) {
-        showToast("Failed to withdraw application.", "error");
-        console.error(error);
-      } else {
-        setMyApplications((prev) =>
-          prev.filter((app) => app.id !== applicationId),
-        );
-        showToast("Application withdrawn successfully.", "success");
+      // Latest chats — one per contract, most recent message
+      const { data: chatsData } = await supabase
+        .from("messages")
+        .select(`id, content, created_at, is_read,
+          contract:contracts!messages_contract_id_fkey(
+            id,
+            hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
+            worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
+          )`)
+        .order("created_at", { ascending: false }).limit(20);
+
+      const seen = new Set();
+      const deduped = [];
+      for (const msg of (chatsData || [])) {
+        const cid = msg.contract?.id;
+        if (cid && !seen.has(cid)) {
+          seen.add(cid);
+          const isWorker = msg.contract?.worker?.id === user.id;
+          deduped.push({ ...msg, otherPerson: isWorker ? msg.contract?.hirer : msg.contract?.worker });
+          if (deduped.length >= 5) break;
+        }
       }
-    } catch (err) {
-      console.error("Error withdrawing application:", err);
-      showToast("An error occurred. Please try again.", "error");
-    }
-  };
+      setLatestChats(deduped);
 
-  const handleCancelContract = async (contractId, jobId) => {
-    if (!confirm('Are you sure you want to cancel this contract?')) return;
-    try {
-      const { error: contractErr } = await supabase
-        .from('contracts')
-        .update({ status: 'cancelled' })
-        .eq('id', contractId);
-      if (contractErr) throw contractErr;
+    } catch (err) { console.error("Dashboard Fetch Error:", err); }
+    finally { setLoading(false); }
+  }, [router]);
 
-      // Optional: Set job back to active
-      await supabase
-        .from('jobs')
-        .update({ status: 'active' })
-        .eq('id', jobId);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-      setActiveContracts(prev => prev.filter(c => c.id !== contractId));
-      setActiveMenuId(null);
-      showToast("Contract cancelled successfully.", "success");
-    } catch (err) {
-      console.error('Error cancelling contract:', err);
-      showToast("Failed to cancel contract.", "error");
-    }
-  };
-
-  const formatBudget = (min, max) => {
-    if (!min && !max) return "Negotiable";
-    if (min && !max) return `₹${min.toLocaleString()}+/hr`;
-    if (!min && max) return `Up to ₹${max.toLocaleString()}/hr`;
-    if (min === max) return `₹${min.toLocaleString()} Fixed`;
-    return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}/hr`;
-  };
-
-  const timeAgo = (dateStr) => {
-    if (!dateStr) return "Recently";
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hrs = Math.floor(diff / (1000 * 60 * 60));
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
-
-  const savedJobIds = new Set(savedJobs.map((s) => s.job_id));
-  const appliedJobIds = new Set(myApplications.map((a) => a.job_id));
-  const firstName = profile?.first_name || "there";
-
-  if (loading)
-    return <div className="worker-loading">Loading your dashboard...</div>;
+  if (loading) return <HashLoader text="" />;
 
   return (
-    <div className="worker-dashboard-new" style={{ position: "relative" }}>
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            padding: "12px 24px",
-            backgroundColor: toast.type === "error" ? "#fee2e2" : "#dcfce7",
-            color: toast.type === "error" ? "#991b1b" : "#166534",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            zIndex: 1000,
-            fontWeight: "500",
-            border: `1px solid ${toast.type === "error" ? "#f87171" : "#4ade80"}`,
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          {toast.message}
-        </div>
-      )}
-      <style jsx>{`
-        @keyframes slideIn {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
+    <div className="wh-dashboard">
+      <PageContainer>
 
-      {/* Header */}
-      <header className="worker-header-new">
-        <h1 className="hd-greeting-name">
-          Hello, {profile?.first_name || "there"}
-        </h1>
-        <p className="worker-subtitle">Your Career Dashboard</p>
-      </header>
-
-      {/* Stats Row (Mimicking Hirer Dashboard) */}
-      <div
-        className="hd-stats-row worker-stats-override"
-        style={{ marginBottom: "24px", padding: "0 16px" }}
-      >
-        <div className="hd-stat-card">
-          <div className="hd-stat-icon blue">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </div>
-          <div>
-            <div className="hd-stat-value">{activeContracts.length}</div>
-            <div className="hd-stat-label">Active Gigs</div>
-          </div>
-        </div>
-        <div className="hd-stat-card">
-          <div className="hd-stat-icon purple">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </div>
-          <div>
-            <div className="hd-stat-value">{myApplications.length}</div>
-            <div className="hd-stat-label">Applications Sent</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Active Gigs Section */}
-      <section className="worker-section-new">
-        <div className="section-header-new">
-          <div className="section-title-wrap">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="section-icon"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-            <h2 className="section-title-new">Active Gigs</h2>
-          </div>
-          <button
-            className="see-all-btn"
-            onClick={() => router.push("/worker/active-gigs")}
+        {/* Role Toggle */}
+        <div className="hw-role-toggle" style={{ marginTop: '20px' }}>
+          <button 
+            className={`hw-toggle-btn ${activeToggle === 'findWork' ? 'hw-toggle-btn--active' : ''}`} 
+            onClick={() => setActiveToggle("findWork")}
           >
-            See All
+            Find Work
+          </button>
+          <button 
+            className={`hw-toggle-btn ${activeToggle === 'postTask' ? 'hw-toggle-btn--active' : ''}`} 
+            onClick={() => { setActiveToggle("postTask"); router.push('/hirer'); }}
+          >
+            Post Task
           </button>
         </div>
 
-        <div className="active-gigs-list">
-          {activeContracts.length === 0 ? (
-            <div className="empty-state-new">No active gigs right now.</div>
-          ) : (
-            activeContracts.slice(0, 3).map((contract) => (
-              <div key={contract.id} className="active-gig-card">
-                <div className="gig-header" style={{ position: 'relative' }}>
-                  <div>
-                    <h3 className="gig-title">
-                      {contract.jobs?.title || "Unknown Gig"}
-                    </h3>
-                    <p className="gig-company">
-                      {contract.hirer?.first_name || contract.jobs?.profiles?.first_name}{" "}
-                      {contract.hirer?.last_name || contract.jobs?.profiles?.last_name || ""}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      className="timeline-badge"
-                      style={{
-                        background: "#ecfdf5",
-                        color: "#059669",
-                        borderColor: "#a7f3d0",
-                      }}
-                    >
-                      Active
-                    </span>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuId(activeMenuId === contract.id ? null : contract.id);
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-                    >
-                      <FiMoreVertical size={18} />
-                    </button>
-
-                    {activeMenuId === contract.id && (
-                      <div 
-                        className="hd-dropdown-menu"
-                        style={{ 
-                          position: 'absolute', 
-                          top: '100%', 
-                          right: '0', 
-                          background: '#fff', 
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', 
-                          borderRadius: '8px', 
-                          padding: '8px', 
-                          zIndex: 10,
-                          minWidth: '150px',
-                          border: '1px solid #f1f5f9'
-                        }}
-                      >
-                        <button 
-                          onClick={() => handleCancelContract(contract.id, contract.job_id)}
-                          style={{ 
-                            width: '100%', 
-                            textAlign: 'left', 
-                            padding: '8px 12px', 
-                            background: 'none', 
-                            border: 'none', 
-                            color: '#ef4444', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px', 
-                            fontSize: '13px', 
-                            fontWeight: '500', 
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                        >
-                          <FiXCircle size={14} /> Cancel Contract
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="gig-progress-wrap" style={{ marginTop: '12px' }}>
-                  <div className="gig-progress-labels" style={{ marginBottom: '12px' }}>
-                    <span>Status</span>
-                    <span style={{ color: "#059669", fontWeight: "600" }}>
-                      Ready to Work
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button 
-                      className="hd-app-action-btn"
-                      onClick={() => {
-                        setChatConfig({
-                          isOpen: true,
-                          contractId: contract.id,
-                          otherUserName: fullName(contract.hirer || contract.jobs?.profiles)
-                        });
-                      }}
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        fontSize: '12px', 
-                        background: '#2563eb', 
-                        color: '#fff',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <FiMessageCircle size={14} /> Tap to Chat
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {/* Recommended Gigs Section */}
-      <section className="worker-section-new">
-        <div className="section-header-new">
-          <div className="section-title-wrap">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="section-icon-gold"
+        {/* Greeting Section */}
+        <div className="hw-flex hw-justify-between hw-items-end hw-mb-32" style={{ padding: '0 16px' }}>
+            <div>
+                <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>WORKER HUB</p>
+                <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
+                    Hello, {profile?.first_name || 'Worker'}
+                </h1>
+            </div>
+            <Button 
+                variant="ghost" 
+                onClick={() => router.push('/worker/saved')}
+                className="hw-flex hw-items-center hw-gap-8"
+                style={{ color: 'var(--color-primary)', padding: '0 0 8px 0', height: 'auto' }}
             >
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            <h2 className="section-title-new">Recommended Gigs</h2>
-          </div>
-          <button
-            className="see-all-btn"
-            onClick={() => router.push("/worker/browse")}
-          >
-            Browse More
-          </button>
+                <FiBookmark size={20} />
+                <span className="text-label-sm" style={{ fontWeight: 800 }}>WISHLIST</span>
+            </Button>
         </div>
 
-        <div className="recommended-gigs-scroll">
-          {allJobs.length === 0 ? (
-            <div className="empty-state-new">No recommended gigs found.</div>
+        {/* Active Gig or CTA */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          {activeGig ? (
+            <ActiveGigCard gig={activeGig} onViewTask={() => router.push('/worker/active-gigs')} />
           ) : (
-            allJobs.slice(0, 5).map((job) => {
-              const isApplied = appliedJobIds.has(job.id);
-              const isOwnJob = job.hirer_id === userId;
-              const isApplying = applyingJobId === job.id;
-
-              return (
-                <div key={job.id} className="recommended-job-card">
-                  <div className="rec-job-header">
-                    <h3 className="rec-job-title">{job.title}</h3>
-                    <span className="badge-remote">REMOTE</span>
-                  </div>
-                  <p className="rec-job-company">
-                    {job.profiles?.first_name} {job.profiles?.last_name || ""}
-                  </p>
-
-                  <div className="rec-job-details">
-                    <div className="detail-item">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect
-                          x="2"
-                          y="7"
-                          width="20"
-                          height="14"
-                          rx="2"
-                          ry="2"
-                        />
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                      </svg>
-                      <span>
-                        {formatBudget(job.budget_min, job.budget_max)}
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <span>
-                        {job.location_type === "remote"
-                          ? "Remote"
-                          : job.city || "On-site"}
-                      </span>
-                    </div>
-                    <div
-                      className="detail-item time-item"
-                      style={{ marginTop: "4px" }}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ flexShrink: 0 }}
-                      >
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                      </svg>
-                      <span>{timeAgo(job.created_at)}</span>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{ display: "flex", gap: "10px", marginTop: "16px" }}
-                  >
-                    <button
-                      style={{
-                        flex: 1,
-                        padding: "10px",
-                        borderRadius: "8px",
-                        border: "1px solid #e2e8f0",
-                        background: "#fff",
-                        color: "#0f172a",
-                        fontWeight: "500",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        transition: "all 0.2s",
-                        textAlign: "center",
-                      }}
-                      onClick={() =>
-                        router.push(`/worker/browse/detail/?id=${job.id}`)
-                      }
-                    >
-                      View Details
-                    </button>
-                    <button
-                      className={`apply-btn-new ${isApplied ? "applied" : ""} ${isOwnJob ? "own-job" : ""}`}
-                      onClick={() => handleApply(job)}
-                      disabled={isApplied || isApplying || isOwnJob}
-                      style={{ flex: 1 }}
-                    >
-                      {isOwnJob
-                        ? "Your Listing"
-                        : isApplying
-                          ? "Applying…"
-                          : isApplied
-                            ? "Applied"
-                            : "Apply Now"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      {/* Applications Section */}
-      <section className="worker-section-new">
-        <div className="section-header-new">
-          <div className="section-title-wrap">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="section-icon"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-            <h2 className="section-title-new">Applications</h2>
-          </div>
-          <button
-            className="see-all-btn"
-            onClick={() => router.push("/worker/applications")}
-          >
-            See All
-          </button>
-        </div>
-
-        <div className="applications-list-new">
-          {myApplications.length === 0 ? (
-            <div className="empty-state-new">No applications yet.</div>
-          ) : (
-            myApplications.slice(0, 5).map((app) => (
-              <div
-                key={app.id}
-                className="app-card-new"
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "16px",
-                }}
+            <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center" style={{ borderRadius: '28px' }}>
+              <div className="text-label-sm">Ready to Work</div>
+              <h1 className="text-headline-lg">No Active Gigs</h1>
+              <p className="text-body-md hw-mt-4">
+                Browse available opportunities nearby to start earning today.
+              </p>
+              <button 
+                className="hw-btn hw-btn-secondary hw-mt-4" 
+                onClick={() => router.push('/worker/browse')}
               >
-                <div style={{ display: "flex", gap: "16px", flex: 1 }}>
-                  <div className="app-card-icon" style={{ flexShrink: 0 }}>
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                    </svg>
-                  </div>
-                  <div className="app-card-content" style={{ flex: 1 }}>
-                    <h3 className="app-title-new">
-                      {app.jobs?.title || "Untitled Role"}
-                    </h3>
-                    <p className="app-meta-new">
-                      {app.jobs?.profiles?.first_name}{" "}
-                      {app.jobs?.profiles?.last_name || ""} · Applied
-                    </p>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: "10px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div className="app-meta">
-                    <span className={`app-badge-new ${app.status}`}>
-                      {app.status || "Pending"}
-                    </span>
-                    {app.status === 'accepted' && !activeContracts.some(c => c.job_id === app.job_id) && (
-                      <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '500' }}>
-                        (Waiting for contract setup)
-                      </span>
-                    )}
-                    <span className="app-date-new">
-                      {new Date(app.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {app.status === "pending" && (
-                    <button
-                      onClick={() => handleWithdraw(app.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#ef4444",
-                        fontSize: "12px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "4px",
-                      }}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                      </svg>
-                      Withdraw
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+                Explore Gigs
+              </button>
+            </Card>
           )}
         </div>
-      </section>
 
-      <ChatModal
-        isOpen={chatConfig.isOpen}
-        onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
-        contractId={chatConfig.contractId}
-        currentUserId={userId}
-        otherUserName={chatConfig.otherUserName}
-      />
+        {/* Urgent Opportunities */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          <UrgentJobsList
+            jobs={urgentJobs}
+            onViewAll={() => router.push('/worker/browse?urgency=immediate')}
+            onJobClick={(id) => router.push(`/worker/browse/detail?id=${id}`)}
+          />
+        </div>
+
+        {/* Explore All Gigs */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          <Card 
+            variant="elevated" 
+            padding="lg" 
+            className="hw-card-interactive" 
+            onClick={() => router.push('/worker/browse')}
+            style={{ borderRadius: '20px' }}
+          >
+            <div className="hw-flex hw-items-center hw-gap-16">
+              <div className="hw-icon-box" style={{ background: '#f1f5f9', color: '#1C4DFF' }}>
+                <FiSearch size={22} />
+              </div>
+              <div className="hw-flex-1">
+                <h3 className="text-title-md" style={{ fontWeight: 800 }}>Explore All Nearby Gigs</h3>
+                <p className="text-body-md hw-mt-2">Find more opportunities to increase your earnings.</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Stats */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          <SummaryStats
+            activeCount={stats.worker.active_gigs}
+            acceptedCount={stats.worker.total_applications}
+            onActiveClick={() => router.push('/worker/active-gigs')}
+            onApplicationsClick={() => router.push('/worker/applications')}
+          />
+        </div>
+
+        {/* Discovery Stack */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          <div className="hw-mb-16">
+            <h2 className="text-headline-lg" style={{ fontWeight: 800 }}>Discover Your Next Gig</h2>
+            <p className="text-body-md hw-mt-2">Swipe cards to save or ignore</p>
+          </div>
+          <DiscoveryStack 
+            jobs={recommendedJobs} 
+            onEmpty={() => router.push('/worker/browse')} 
+          />
+        </div>
+
+        {/* Latest Chats */}
+        <div className="hw-section" style={{ padding: '0 16px' }}>
+          <LatestChatsList
+            chats={latestChats}
+            onViewAll={() => router.push('/messages')}
+            onChatClick={(contractId) => router.push(`/messages?contract=${contractId}`)}
+          />
+        </div>
+      </PageContainer>
     </div>
   );
 }

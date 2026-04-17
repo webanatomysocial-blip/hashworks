@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { FiSend, FiMessageSquare, FiClock } from 'react-icons/fi';
+import { FiSend, FiMessageSquare, FiClock, FiPlus, FiChevronLeft, FiBell, FiMoreVertical } from 'react-icons/fi';
+import { HiOutlineWrench } from 'react-icons/hi2';
 import { supabase } from '@/lib/supabase';
 import { getMessages, sendMessage, subscribeToMessages, markMessagesAsRead } from '@/lib/chat';
+import HashLoader from './HashLoader';
 
-export default function ChatView({ contractId, currentUserId, otherUserName, showHeader = false, onClose = null }) {
+export default function ChatView({ contractId, currentUserId, otherUserName, showHeader = true, onClose = null, jobTitle = '', status = '', budget = 0, otherPartyAvatar = null, onBack = null }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -107,26 +109,73 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
     return (
         <div className="chat-view-container">
             {showHeader && (
-                <header className="chat-view-header">
-                    <div className="chat-user-info">
-                        <div className="chat-avatar">
-                            {otherUserName?.[0]?.toUpperCase() || '?'}
+                <nav className="wh-detail-header" style={{ marginBottom: 0, borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button onClick={onBack} className="wh-nav-icon-btn" style={{ padding: '4px', marginLeft: '-8px' }}>
+                            <FiChevronLeft size={28} />
+                        </button>
+                        <div style={{
+                            width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                            border: '1px solid #eef2ff'
+                        }}>
+                             {otherPartyAvatar ? <img src={otherPartyAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 800, color: '#4f74ff' }}>{otherUserName?.[0]}</span>}
                         </div>
-                        <div>
-                            <h3 className="chat-user-name">{otherUserName || 'Chat'}</h3>
-                            <div className="chat-online-dot">Online</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '4px' }}>
+                            <h1 className="wh-header-title" style={{ fontSize: '15.5px', margin: 0, color: '#4f74ff', lineHeight: 1 }}>{otherUserName || 'Chat'}</h1>
+                            <span style={{ fontSize: '9px', fontWeight: 900, color: '#10B981', letterSpacing: '0.8px', textTransform: 'uppercase' }}>ONLINE</span>
                         </div>
                     </div>
-                </header>
+                    <button className="wh-nav-icon-btn">
+                        <FiBell size={22} style={{ color: '#94a3b8' }} />
+                    </button>
+                </nav>
+            )}
+
+            {/* Task Context Card */}
+            {jobTitle && (
+                <div style={{ 
+                    padding: '8px 16px', 
+                    backgroundColor: '#fff', 
+                    borderBottom: '1px solid #F1F5F9'
+                }}>
+                    <div style={{
+                        background: '#EEF2FF',
+                        borderRadius: '12px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                                width: '38px', height: '38px', borderRadius: '10px',
+                                background: '#1C4DFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#FFF'
+                            }}>
+                                <HiOutlineWrench size={22} />
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', margin: '0 0 2px 0' }}>{jobTitle}</p>
+                                <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', margin: 0 }}>Task Budget: ₹{budget}</p>
+                            </div>
+                        </div>
+                        <span style={{
+                            fontSize: '9px', fontWeight: 900, padding: '4px 10px', borderRadius: '20px',
+                            backgroundColor: '#CBD5E1',
+                            color: '#475569',
+                            textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap'
+                        }}>
+                            {status === 'active' ? 'NEGOTIATING' : status?.toUpperCase() || 'CHAT'}
+                        </span>
+                    </div>
+                </div>
             )}
 
             <div className="chat-messages" ref={scrollRef}>
                 {loading ? (
-                    <div className="chat-loading-skeleton">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className={`skeleton-bubble ${i % 2 === 0 ? 'left' : 'right'}`} />
-                        ))}
-                    </div>
+                    <HashLoader text="" />
                 ) : messages.length === 0 ? (
                     <div className="chat-empty-convo">
                         <div className="convo-start-msg">
@@ -155,15 +204,18 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
             <div className="chat-bottom-bar">
                 <form className="chat-input-area" onSubmit={handleSend}>
+                    <button type="button" className="chat-plus-btn">
+                        <FiPlus size={20} />
+                    </button>
                     <input
                         type="text"
-                        placeholder="Write a message..."
+                        placeholder="Type a message..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         autoFocus
                     />
-                    <button type="submit" disabled={!newMessage.trim()} title="Send message">
-                        <FiSend size={20} />
+                    <button type="submit" disabled={!newMessage.trim()} title="Send message" className="chat-send-btn">
+                        <FiSend size={18} />
                     </button>
                 </form>
             </div>
@@ -293,15 +345,15 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                     box-shadow: 0 2px 4px rgba(0,0,0,0.02);
                 }
                 .sent .chat-bubble {
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    background: linear-gradient(135deg, #1C4DFF 0%, #3366FF 100%);
                     color: #fff;
                     border-bottom-right-radius: 4px;
                 }
                 .received .chat-bubble {
-                    background: #ffffff;
+                    background: #EEF2FF;
                     color: #1e293b;
                     border-bottom-left-radius: 4px;
-                    border: 1px solid #eef2f6;
+                    border: none;
                 }
                 .chat-bubble p {
                     margin: 0;
@@ -317,54 +369,75 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                 .sent .chat-time {
                     color: rgba(255,255,255,0.8);
                 }
+                .received .chat-time {
+                    color: #94a3b8;
+                }
                 .chat-bottom-bar {
-                    padding: 20px 24px;
+                    padding: 12px 16px 20px;
                     background: #fff;
                     border-top: 1px solid #f1f5f9;
                 }
                 .chat-input-area {
                     display: flex;
-                    background: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 14px;
-                    padding: 6px;
+                    background: #F8FAFC;
+                    border: 1.5px solid #E2E8F0;
+                    border-radius: 999px;
+                    padding: 4px 4px 4px 6px;
                     align-items: center;
                     transition: all 0.2s;
-                    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+                    gap: 4px;
                 }
                 .chat-input-area:focus-within {
-                    border-color: #0f172a;
+                    border-color: #1C4DFF;
                     background: #fff;
-                    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+                    box-shadow: 0 0 0 3px rgba(28, 77, 255, 0.08);
                 }
                 .chat-input-area input {
                     flex: 1;
-                    padding: 8px 12px;
+                    padding: 8px 8px;
                     border: none;
                     background: transparent;
                     font-size: 14px;
                     color: #0f172a;
                     outline: none;
                 }
-                .chat-input-area button {
-                    width: 38px;
-                    height: 38px;
-                    border-radius: 10px;
-                    background: #0f172a;
+                .chat-plus-btn {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    background: #E2E8F0;
+                    color: #475569;
+                    border: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    flex-shrink: 0;
+                    transition: all 0.15s;
+                }
+                .chat-plus-btn:hover {
+                    background: #CBD5E1;
+                }
+                .chat-send-btn {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: #1C4DFF;
                     color: #fff;
                     border: none;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
+                    flex-shrink: 0;
                     transition: all 0.2s;
                 }
-                .chat-input-area button:hover {
-                    background: #334155;
+                .chat-send-btn:hover {
+                    background: #1540D9;
                     transform: scale(1.05);
                 }
-                .chat-input-area button:disabled {
-                    background: #cbd5e1;
+                .chat-send-btn:disabled {
+                    background: #CBD5E1;
                     cursor: not-allowed;
                     transform: none;
                 }

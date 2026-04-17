@@ -3,8 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiChevronLeft, FiXCircle } from 'react-icons/fi';
-import '@/css/worker.css';
+import { FiArrowLeft, FiXCircle, FiSend, FiBriefcase, FiChevronRight, FiClock } from 'react-icons/fi';
+import HashLoader from '@/Components/common/HashLoader';
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Card } from "@/Components/ui/Card";
+import { Badge } from "@/Components/ui/Badge";
+import { Button } from "@/Components/ui/Button";
 
 export default function MyApplicationsPage() {
     const router = useRouter();
@@ -68,7 +72,7 @@ export default function MyApplicationsPage() {
         }
     };
 
-    if (loading) return <div className="worker-loading">Loading Applications...</div>;
+    if (loading) return <HashLoader text="" />;
 
     const getStatusText = (status) => {
         switch (status) {
@@ -92,7 +96,7 @@ export default function MyApplicationsPage() {
     };
 
     return (
-        <div className="worker-dashboard-new" style={{ minHeight: '100vh', paddingBottom: '40px', position: 'relative' }}>
+        <div className="wh-dashboard" style={{ minHeight: '100vh', paddingBottom: '40px', position: 'relative' }}>
             {toast && (
                 <div style={{
                     position: 'fixed', bottom: '24px', right: '24px', padding: '12px 24px',
@@ -113,72 +117,70 @@ export default function MyApplicationsPage() {
                 }
             `}</style>
 
-            <div className="section-header-new" style={{ padding: '24px 20px', borderBottom: '1px solid #f1f5f9', marginBottom: '20px' }}>
-                <button
-                    onClick={() => router.push('/worker')}
-                    style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#64748b', fontSize: '15px' }}
-                >
-                    <FiChevronLeft size={20} /> Dashboard
-                </button>
-            </div>
+            <PageContainer>
+                <div style={{ padding: '20px 16px' }}>
+                    <div className="hw-mb-32">
+                        <Button variant="ghost" onClick={() => router.push('/worker')} style={{ marginBottom: '16px', padding: '0', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B' }}>
+                            <FiArrowLeft size={16} /> <span style={{ fontSize: '14px', fontWeight: 600 }}>Back to Dashboard</span>
+                        </Button>
+                        <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <FiSend size={32} style={{ color: '#1C4DFF' }} /> My Applications
+                        </h1>
+                        <p className="text-body-md" style={{ color: '#64748B', marginTop: '8px' }}>
+                            Track the status of the gigs you've applied to.
+                        </p>
+                    </div>
 
-            <div style={{ padding: '0 20px', maxWidth: '600px', margin: '0 auto' }}>
-                <div className="section-title-wrap" style={{ marginBottom: '24px' }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="section-icon"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-                    <h1 className="section-title-new" style={{ fontSize: '24px' }}>My Applications</h1>
-                </div>
-
-                <div className="applications-list-new" style={{ gap: '16px' }}>
-                    {applications.length === 0 ? (
-                        <div className="empty-state-new">You haven't applied to any gigs yet.</div>
-                    ) : (
-                        applications.map(app => (
-                            <div key={app.id} className="app-card-new" style={{ padding: '20px', border: '1px solid #f1f5f9', borderRadius: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', background: '#fff', gap: '16px' }}>
-                                <div style={{ display: 'flex', gap: '16px', flex: 1 }}>
-                                    <div className="app-card-icon" style={{ flexShrink: 0 }}>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h3 className="app-title-new" style={{ fontSize: '17px', marginBottom: '6px' }}>{app.jobs?.title || 'Untitled Role'}</h3>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', color: '#64748b', fontSize: '13px' }}>
-                                            <span>{app.jobs?.profiles?.first_name} {app.jobs?.profiles?.last_name || ''}</span>
-                                            <span>•</span>
-                                            <span style={{ color: '#000', fontWeight: '500' }}>₹{app.jobs?.budget ? app.jobs.budget.toLocaleString() : 'N/A'}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {applications.length === 0 ? (
+                             <Card variant="border" padding="xl" className="hw-text-center">
+                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
+                                     <FiBriefcase size={24} />
+                                 </div>
+                                 <h3 className="text-title-md">No applications yet</h3>
+                                 <p className="text-body-md">You haven't applied to any gigs yet.</p>
+                             </Card>
+                        ) : (
+                            applications.map(app => (
+                                <Card 
+                                    key={app.id} 
+                                    variant="elevated" 
+                                    padding="lg" 
+                                    style={{ borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
+                                >
+                                    <div className="hw-flex hw-items-start hw-justify-between hw-gap-16">
+                                        <div style={{ flex: 1 }}>
+                                            <div className="hw-flex hw-justify-between hw-items-start hw-mb-4">
+                                                <h4 className="text-title-md" style={{ fontWeight: 800, fontSize: '18px', margin: 0 }}>
+                                                    {app.jobs?.title || 'Untitled Role'}
+                                                </h4>
+                                                <Badge variant={app.status === 'accepted' ? 'success' : app.status === 'rejected' ? 'urgent' : 'waiting'}>
+                                                    {getStatusText(app.status).toUpperCase()}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-body-md" style={{ fontSize: '14px', color: '#64748B', marginBottom: '8px' }}>
+                                                Hirer: <span style={{ color: '#1C4DFF', fontWeight: 700 }}>{app.jobs?.profiles?.first_name} {app.jobs?.profiles?.last_name || ''}</span>
+                                                <span style={{ margin: '0 8px', color: '#cbd5e1' }}>•</span>
+                                                <span style={{ fontWeight: 700, color: '#0F172A' }}>₹{app.jobs?.budget ? app.jobs.budget.toLocaleString() : 'N/A'}</span>
+                                            </p>
+                                            <div className="hw-flex hw-items-center hw-justify-between">
+                                                <span className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: '#94a3b8' }}>
+                                                    <FiClock size={14} /> Applied on {formatDate(app.created_at)}
+                                                </span>
+                                                {app.status === 'pending' && (
+                                                    <Button variant="ghost" size="sm" onClick={() => handleWithdraw(app.id)} style={{ color: '#ef4444' }}>
+                                                        <FiXCircle size={14} /> Withdraw
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '10px' }}>
-                                            Applied on {formatDate(app.created_at)}
-                                        </div>
                                     </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                                    <div style={{
-                                        padding: '6px 14px',
-                                        borderRadius: '20px',
-                                        fontSize: '11px',
-                                        fontWeight: '700',
-                                        letterSpacing: '0.05em',
-                                        textTransform: 'uppercase',
-                                        ...getBadgeStyle(app.status)
-                                    }}>
-                                        {getStatusText(app.status)}
-                                    </div>
-                                    {app.status === 'pending' && (
-                                        <button
-                                            onClick={() => handleWithdraw(app.id)}
-                                            style={{
-                                                background: 'none', border: 'none', color: '#ef4444', fontSize: '12px',
-                                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px'
-                                            }}
-                                        >
-                                            <FiXCircle size={14} /> Withdraw
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        ))
-                    )}
+                                </Card>
+                            ))
+                        )}
+                    </div>
                 </div>
-            </div>
+            </PageContainer>
         </div>
     );
 }

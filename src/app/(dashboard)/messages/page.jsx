@@ -1,68 +1,105 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiMessageSquare, FiSearch, FiArrowLeft, FiClock } from 'react-icons/fi';
-import ChatView from '@/Components/ChatView';
+import { FiMessageSquare, FiSearch, FiArrowLeft, FiClock, FiBell, FiChevronLeft } from 'react-icons/fi';
+import ChatView from '@/Components/common/ChatView';
+import HashLoader from '@/Components/common/HashLoader';
 import { getLastMessage, getUnreadCount } from '@/lib/chat';
 import '@/css/dashboard.css';
 
-export default function MessagesPage() {
+import { Input } from "@/Components/ui/Input";
+import { Button } from "@/Components/ui/Button";
+
+function MessagesContent() {
+    const searchParams = useSearchParams();
+    const initialContractId = searchParams.get('contract');
+
     const [chats, setChats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Chat Selection State
-    const [selectedChat, setSelectedChat] = useState({ id: null, otherUserName: '' });
+    // Chat Selection & Filter State
+    const [selectedChat, setSelectedChat] = useState({ id: null, otherUserName: '', jobTitle: '', status: '', budget: 0 });
+    const [activeTab, setActiveTab] = useState('All');
+    const [mobileView, setMobileView] = useState('list'); // 'list' or 'chat'
 
     const fetchChats = useCallback(async (userId) => {
         try {
+            // Removed .eq('status', 'active') to show all relevant conversations
             const { data: contracts, error } = await supabase
                 .from('contracts')
                 .select(`
                     id,
                     status,
                     job_id,
-                    hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
-                    worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url),
-                    jobs(title)
+                    agreed_amount,
+                    hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url, average_rating),
+                    worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url, average_rating),
+                    jobs(title, budget_max)
                 `)
                 .or(`hirer_id.eq.${userId},worker_id.eq.${userId}`)
-                .eq('status', 'active')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
             const chatsWithDetails = await Promise.all((contracts || []).map(async (contract) => {
-                const isHirer = contract.hirer.id === userId;
-                const otherParty = isHirer ? contract.worker : contract.hirer;
-                const name = otherParty ? `${otherParty.first_name} ${otherParty.last_name || ''}` : 'Unknown';
-                
+                const h = Array.isArray(contract.hirer) ? contract.hirer[0] : contract.hirer;
+                const w = Array.isArray(contract.worker) ? contract.worker[0] : contract.worker;
+
+                const isHirer = h?.id === userId;
+                const otherParty = isHirer ? w : h;
+                const name = otherParty ? `${otherParty.first_name} ${otherParty.last_name || ''}`.trim() : 'Unknown';
+
                 const lastMsg = await getLastMessage(contract.id);
                 const unreadCount = await getUnreadCount(contract.id, userId);
+
+                // Don't show in sidebar if there's no message AND the contract isn't active/pending
+                // Unless it's the one we're trying to open
+                if (!lastMsg && contract.status !== 'active' && contract.status !== 'pending' && contract.id !== initialContractId) return null;
 
                 return {
                     id: contract.id,
                     otherPartyName: name,
                     otherPartyAvatar: otherParty?.avatar_url,
+                    otherPartyRating: otherParty?.average_rating,
                     jobTitle: contract.jobs?.title || 'Project',
+                    budget: contract.agreed_amount || contract.jobs?.budget_max || 0,
                     lastMessage: lastMsg?.content || 'No messages yet',
                     lastMessageTime: lastMsg?.created_at || contract.created_at,
                     unreadCount: unreadCount,
-                    otherPartyId: otherParty?.id
+                    otherPartyId: otherParty?.id,
+                    lastSenderId: lastMsg?.sender_id,
+                    status: contract.status
                 };
             }));
 
-            // Sort by last message time
-            chatsWithDetails.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
-            setChats(chatsWithDetails);
+            const finalChats = chatsWithDetails.filter(Boolean);
+            finalChats.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+            setChats(finalChats);
+
+            // Handle Deep Linking from Dashboard
+            if (initialContractId) {
+                const targetChat = finalChats.find(c => c.id === initialContractId);
+                if (targetChat) {
+                    setSelectedChat({
+                        id: targetChat.id,
+                        otherUserName: targetChat.otherPartyName,
+                        jobTitle: targetChat.jobTitle,
+                        status: targetChat.status,
+                        budget: targetChat.budget
+                    });
+                    setMobileView('chat');
+                }
+            }
         } catch (err) {
             console.error('Error fetching chats:', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [initialContractId]);
 
     useEffect(() => {
         async function init() {
@@ -74,56 +111,48 @@ export default function MessagesPage() {
         init();
     }, [fetchChats]);
 
-    // Real-time subscription for the chat list
     useEffect(() => {
         if (!currentUser) return;
-
-        const channel = supabase
-            .channel('global-messages')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'messages'
-                },
-                async (payload) => {
-                    const newMsg = payload.new;
-                    // Check if this message belongs to one of our active chats
-                    setChats(prevChats => {
-                        const chatIdx = prevChats.findIndex(c => c.id === newMsg.contract_id);
-                        if (chatIdx === -1) return prevChats;
-
-                        const updatedChats = [...prevChats];
-                        const chat = updatedChats[chatIdx];
-                        
-                        updatedChats[chatIdx] = {
-                            ...chat,
-                            lastMessage: newMsg.content,
-                            lastMessageTime: newMsg.created_at,
-                            unreadCount: newMsg.sender_id !== currentUser.id ? chat.unreadCount + 1 : chat.unreadCount
-                        };
-
-                        // Sort updatedChats again to bring top
-                        return updatedChats.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
-                    });
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        const channel = supabase.channel('global-messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+            const newMsg = payload.new;
+            setChats(prevChats => {
+                const chatIdx = prevChats.findIndex(c => c.id === newMsg.contract_id);
+                if (chatIdx === -1) return prevChats;
+                const updatedChats = [...prevChats];
+                const chat = updatedChats[chatIdx];
+                updatedChats[chatIdx] = {
+                    ...chat,
+                    lastMessage: newMsg.content,
+                    lastMessageTime: newMsg.created_at,
+                    unreadCount: newMsg.sender_id !== currentUser.id ? chat.unreadCount + 1 : chat.unreadCount
+                };
+                return updatedChats.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+            });
+        }).subscribe();
+        return () => { supabase.removeChannel(channel); };
     }, [currentUser]);
 
-    const filteredChats = chats.filter(chat => 
-        chat.otherPartyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        chat.jobTitle.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredChats = chats.filter(chat => {
+        const matchesSearch = chat.otherPartyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            chat.jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
+
+        if (!matchesSearch) return false;
+
+        if (activeTab === 'Active') return chat.status === 'active';
+        if (activeTab === 'Awaiting Reply') return chat.unreadCount > 0 || (chat.lastSenderId && chat.lastSenderId !== currentUser?.id);
+
+        return true;
+    });
 
     const handleSelectChat = (chat) => {
-        setSelectedChat({ id: chat.id, otherUserName: chat.otherPartyName });
-        // Clear unread count for this chat locally
+        setSelectedChat({
+            id: chat.id,
+            otherUserName: chat.otherPartyName,
+            jobTitle: chat.jobTitle,
+            status: chat.status,
+            budget: chat.budget
+        });
+        setMobileView('chat');
         setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
     };
 
@@ -141,59 +170,136 @@ export default function MessagesPage() {
         return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     };
 
-    if (loading) return (
-        <div className="messages-loading">
-            <div className="loader"></div>
-            <p>Gathering your conversations...</p>
-        </div>
-    );
+    const router = useRouter();
+
+    if (loading) return <div style={{ padding: '80px', textAlign: 'center' }}><HashLoader text="" /></div>;
 
     return (
-        <div className="messages-layout-v2">
-            {/* Sidebar */}
-            <aside className={`messages-sidebar ${selectedChat.id ? 'hidden-mobile' : ''}`}>
-                <div className="sidebar-header">
-                    <h1 className="sidebar-title">Messages</h1>
-                    <div className="search-box">
-                        <FiSearch className="search-icon" />
-                        <input 
-                            type="text" 
-                            placeholder="Find a contract..." 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+        <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--color-surface)', overflow: 'hidden' }}>
+            {/* ── Sidebar ── */}
+            <aside
+                className={`messages-sidebar ${mobileView === 'chat' ? 'mobile-hidden' : ''}`}
+                style={{
+                    width: '100%',
+                    maxWidth: '420px',
+                    borderRight: '1.5px solid #f1f5f9',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    backgroundColor: 'white',
+                    flexShrink: 0,
+                    zIndex: 10
+                }}
+            >
+                <nav className="wh-detail-header" style={{ marginBottom: 0, borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button onClick={() => router.back()} className="wh-nav-icon-btn" style={{ padding: '4px', marginLeft: '-8px' }}>
+                            <FiChevronLeft size={28} color="#4f74ff" />
+                        </button>
+                        <h1 className="wh-header-title" style={{ margin: 0, lineHeight: 1 }}>Inbox</h1>
                     </div>
+                </nav>
+
+                <div className="filter-chips-container" style={{ display: 'flex', gap: '8px', padding: '16px 20px', overflowX: 'auto', scrollbarWidth: 'none', borderBottom: '1px solid #f8fafc' }}>
+                    {['All', 'Active', 'Awaiting Reply'].map(filter => (
+                        <button
+                            key={filter}
+                            onClick={() => setActiveTab(filter)}
+                            style={{
+                                padding: '10px 18px', borderRadius: '30px', border: 'none',
+                                whiteSpace: 'nowrap', fontSize: '13px', fontWeight: 700,
+                                backgroundColor: activeTab === filter ? '#4f74ff' : '#f1f5f9',
+                                color: activeTab === filter ? '#FFF' : '#64748b',
+                                cursor: 'pointer',
+                                transition: '0.2s transform active',
+                                boxShadow: activeTab === filter ? '0 4px 12px rgba(79, 116, 255, 0.2)' : 'none'
+                            }}
+                        >
+                            {filter}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="chat-list">
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-sm)' }}>
                     {filteredChats.length === 0 ? (
-                        <div className="no-chats-state">
-                            <FiMessageSquare size={40} />
-                            <p>{searchQuery ? 'No matching conversations' : 'No active projects yet'}</p>
+                        <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>
+                            <FiMessageSquare size={32} style={{ marginBottom: '12px' }} />
+                            <p className="text-label-sm">No conversations found</p>
                         </div>
                     ) : (
                         filteredChats.map(chat => (
-                            <div 
-                                key={chat.id} 
-                                className={`chat-card ${selectedChat.id === chat.id ? 'active' : ''}`}
+                            <div
+                                key={chat.id}
                                 onClick={() => handleSelectChat(chat)}
+                                style={{
+                                    padding: '20px 16px', borderRadius: '24px',
+                                    cursor: 'pointer', transition: 'all 0.2s', margin: '8px 4px',
+                                    display: 'flex', gap: '14px', alignItems: 'flex-start',
+                                    backgroundColor: selectedChat.id === chat.id ? '#F8FAFC' : '#FFF',
+                                    border: selectedChat.id === chat.id ? '1px solid #E2E8F0' : '1px solid transparent',
+                                    position: 'relative',
+                                    boxShadow: selectedChat.id === chat.id ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
+                                }}
                             >
-                                <div className="chat-card-avatar">
-                                    {chat.otherPartyAvatar ? (
-                                        <img src={chat.otherPartyAvatar} alt="" />
-                                    ) : (
-                                        <span className="avatar-initials">{chat.otherPartyName[0]}</span>
-                                    )}
-                                    {chat.unreadCount > 0 && <div className="unread-badge">{chat.unreadCount}</div>}
-                                </div>
-                                <div className="chat-card-content">
-                                    <div className="chat-card-top">
-                                        <h3>{chat.otherPartyName}</h3>
-                                        <span className="time-label">{formatTimestamp(chat.lastMessageTime)}</span>
+                                {/* Active Indicator Dot */}
+                                {selectedChat.id === chat.id && (
+                                    <div style={{ position: 'absolute', left: '-2px', top: '24px', bottom: '24px', width: '4px', backgroundColor: '#4f74ff', borderRadius: '0 4px 4px 0' }} />
+                                )}
+
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                    <div style={{
+                                        width: '52px', height: '52px', borderRadius: '50%',
+                                        backgroundColor: '#E2E8F0', overflow: 'hidden',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '18px', fontWeight: '800', color: '#4f74ff',
+                                        border: '2px solid #FFF', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                    }}>
+                                        {chat.otherPartyAvatar ? <img src={chat.otherPartyAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : chat.otherPartyName?.[0]}
                                     </div>
-                                    <div className="chat-card-bottom">
-                                        <p className="job-title-tag">{chat.jobTitle}</p>
-                                        <p className="msg-preview">{formatSnippet(chat.lastMessage)}</p>
+                                    {chat.status === 'active' && (
+                                        <div style={{ position: 'absolute', bottom: '2px', right: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#10B981', border: '2px solid #FFF' }} />
+                                    )}
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <h4 style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat.jobTitle}</h4>
+                                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', whiteSpace: 'nowrap', marginLeft: '8px' }}>{formatTimestamp(chat.lastMessageTime)}</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{
+                                            fontSize: '9px', fontWeight: 900, padding: '2px 8px', borderRadius: '20px',
+                                            backgroundColor: chat.status === 'pending' ? '#DCFCE7' : (chat.status === 'active' ? '#EEF2FF' : '#F1F5F9'),
+                                            color: chat.status === 'pending' ? '#166534' : (chat.status === 'active' ? '#4f74ff' : '#475569'),
+                                            textTransform: 'uppercase', letterSpacing: '0.5px'
+                                        }}>
+                                            {chat.status === 'pending' ? 'Interested' : (chat.status === 'active' ? 'Assigned' : chat.status?.toUpperCase())}
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748B', fontWeight: 700 }}>
+                                            <span>{chat.otherPartyName}</span>
+                                            {chat.otherPartyRating && (
+                                                <>
+                                                    <span style={{ color: '#F59E0B', fontSize: '10px' }}>★</span>
+                                                    <span>{chat.otherPartyRating.toFixed(1)}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '4px' }}>
+                                        <p style={{ fontSize: '13.5px', color: '#64748B', fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, paddingRight: '12px', opacity: chat.unreadCount > 0 ? 1 : 0.8 }}>
+                                            {chat.unreadCount > 0 ? <b>{chat.lastMessage}</b> : chat.lastMessage}
+                                        </p>
+                                        {chat.unreadCount > 0 && (
+                                            <div style={{
+                                                minWidth: '22px', height: '22px', borderRadius: '11px',
+                                                backgroundColor: '#4f74ff', color: 'white',
+                                                fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontWeight: '900', padding: '0 6px', boxShadow: '0 4px 10px rgba(79, 116, 255, 0.3)'
+                                            }}>
+                                                {chat.unreadCount}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -202,336 +308,75 @@ export default function MessagesPage() {
                 </div>
             </aside>
 
-            {/* Chat Pane */}
-            <main className={`messages-main ${!selectedChat.id ? 'hidden-mobile' : ''}`}>
+            {/* ── Chat Pane ── */}
+            <main
+                className={`chat-pane-container ${mobileView === 'list' ? 'mobile-hidden' : ''}`}
+                style={{ flex: 1, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}
+            >
                 {selectedChat.id ? (
-                    <div className="active-chat-container">
-                        <header className="main-chat-header">
-                            <button className="back-btn" onClick={() => setSelectedChat({ id: null, otherUserName: '' })}>
-                                <FiArrowLeft size={22} />
-                            </button>
-                            <div className="header-info">
-                                <div className="header-avatar">
-                                    {chats.find(c => c.id === selectedChat.id)?.otherPartyAvatar ? (
-                                        <img src={chats.find(c => c.id === selectedChat.id).otherPartyAvatar} alt="" />
-                                    ) : (
-                                        <span>{selectedChat.otherUserName?.[0]}</span>
-                                    )}
-                                </div>
-                                <div>
-                                    <h4>{selectedChat.otherUserName}</h4>
-                                    <span className="status-indicator">Connected</span>
-                                </div>
-                            </div>
-                        </header>
-                        <div className="main-chat-view">
-                            <ChatView 
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <ChatView
                                 contractId={selectedChat.id}
                                 currentUserId={currentUser?.id}
                                 otherUserName={selectedChat.otherUserName}
+                                jobTitle={selectedChat.jobTitle}
+                                status={selectedChat.status}
+                                budget={selectedChat.budget}
+                                otherPartyAvatar={chats.find(c => c.id === selectedChat.id)?.otherPartyAvatar}
+                                onBack={() => setMobileView('list')}
                             />
                         </div>
                     </div>
                 ) : (
-                    <div className="empty-chat-pane">
-                        <div className="empty-pane-visual">
-                            <div className="visual-circle">
-                                <FiMessageSquare size={48} />
-                            </div>
-                            <h2>Your Work Hub</h2>
-                            <p>Select an ongoing project to communicate with your partner.</p>
+                    <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '40px',
+                        textAlign: 'center',
+                        color: '#94A3B8'
+                    }}>
+                        <div style={{
+                            width: '80px', height: '80px', borderRadius: '30px',
+                            backgroundColor: 'white', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', marginBottom: '24px',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
+                        }}>
+                            <FiMessageSquare size={32} color="#4f74ff" />
                         </div>
+                        <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>Select a conversation</h3>
+                        <p style={{ fontSize: '15px', fontWeight: 600, color: '#64748B', maxWidth: '300px' }}>
+                            Choose a chat from the sidebar to view messages and task details.
+                        </p>
                     </div>
                 )}
             </main>
 
-            <style jsx>{`
-                .messages-layout-v2 {
-                    display: flex;
-                    height: calc(100vh - 80px);
-                    background: #fff;
-                    overflow: hidden;
-                }
-                .messages-sidebar {
-                    width: 380px;
-                    border-right: 1px solid #f1f5f9;
-                    display: flex;
-                    flex-direction: column;
-                    background: #fff;
-                    z-index: 20;
-                }
-                .sidebar-header {
-                    padding: 30px 24px 20px;
-                }
-                .sidebar-title {
-                    font-size: 26px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    margin: 0 0 20px 0;
-                    letter-spacing: -0.5px;
-                }
-                .search-box {
-                    position: relative;
-                }
-                .search-icon {
-                    position: absolute;
-                    left: 14px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: #94a3b8;
-                }
-                .search-box input {
-                    width: 100%;
-                    padding: 12px 14px 12px 42px;
-                    background: #f8fafc;
-                    border: 1px solid #f1f5f9;
-                    border-radius: 14px;
-                    font-size: 14px;
-                    color: #0f172a;
-                    outline: none;
-                    transition: all 0.2s;
-                }
-                .search-box input:focus {
-                    background: #fff;
-                    border-color: #0f172a;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-                }
-                .chat-list {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 10px 16px;
-                }
-                .chat-card {
-                    display: flex;
-                    align-items: center;
-                    gap: 14px;
-                    padding: 16px;
-                    border-radius: 18px;
-                    cursor: pointer;
-                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                    margin-bottom: 8px;
-                    border: 1px solid transparent;
-                }
-                .chat-card:hover {
-                    background: #f8fafc;
-                }
-                .chat-card.active {
-                    background: #f1f5f9;
-                    border-color: #e2e8f0;
-                }
-                .chat-card-avatar {
-                    position: relative;
-                    width: 54px;
-                    height: 54px;
-                    flex-shrink: 0;
-                }
-                .chat-card-avatar img, .avatar-initials {
-                    width: 100%;
-                    height: 100%;
-                    border-radius: 16px;
-                    object-fit: cover;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #0f172a;
-                    color: #fff;
-                    font-weight: 700;
-                    font-size: 18px;
-                }
-                .unread-badge {
-                    position: absolute;
-                    top: -6px;
-                    right: -6px;
-                    background: #ef4444;
-                    color: #fff;
-                    font-size: 11px;
-                    font-weight: 800;
-                    padding: 2px 6px;
-                    border-radius: 10px;
-                    border: 3px solid #fff;
-                }
-                .chat-card-content {
-                    flex: 1;
-                    min-width: 0;
-                }
-                .chat-card-top {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: baseline;
-                    margin-bottom: 4px;
-                }
-                .chat-card-top h3 {
-                    font-size: 15px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    margin: 0;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                .time-label {
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                }
-                .chat-card-bottom {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 2px;
-                }
-                .job-title-tag {
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: #3b82f6;
-                    text-transform: uppercase;
-                    letter-spacing: 0.3px;
-                }
-                .msg-preview {
-                    font-size: 13px;
-                    color: #64748b;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                .messages-main {
-                    flex: 1;
-                    background: #fcfdfe;
-                    display: flex;
-                    flex-direction: column;
-                }
-                .active-chat-container {
-                    display: flex;
-                    flex-direction: column;
-                    height: 100%;
-                }
-                .main-chat-header {
-                    padding: 16px 24px;
-                    border-bottom: 1px solid #f1f5f9;
-                    background: #fff;
-                    display: flex;
-                    align-items: center;
-                    gap: 16px;
-                }
-                .back-btn {
-                    display: none;
-                    background: none;
-                    border: none;
-                    color: #64748b;
-                    padding: 8px;
-                    margin-left: -8px;
-                    cursor: pointer;
-                }
-                .header-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                }
-                .header-avatar {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    background: #0f172a;
-                    color: #fff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: 700;
-                }
-                .header-avatar img { width: 100%; height: 100%; object-fit: cover; }
-                .header-info h4 {
-                    font-size: 16px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    margin: 0;
-                }
-                .status-indicator {
-                    font-size: 11px;
-                    color: #10b981;
-                    font-weight: 600;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                }
-                .status-indicator::before {
-                    content: '';
-                    width: 6px;
-                    height: 6px;
-                    background: #10b981;
-                    border-radius: 50%;
-                }
-                .main-chat-view {
-                    flex: 1;
-                    overflow: hidden;
-                }
-                .empty-chat-pane {
-                    flex: 1;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    text-align: center;
-                    padding: 40px;
-                }
-                .visual-circle {
-                    width: 120px;
-                    height: 120px;
-                    background: #fff;
-                    border-radius: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0 auto 30px;
-                    color: #e2e8f0;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.03);
-                    transform: rotate(-5deg);
-                }
-                .empty-pane-visual h2 {
-                    font-size: 24px;
-                    font-weight: 800;
-                    color: #0f172a;
-                    margin: 0 0 12px 0;
-                }
-                .empty-pane-visual p {
-                    color: #64748b;
-                    font-size: 15px;
-                    max-width: 320px;
-                    line-height: 1.6;
-                }
-                .messages-loading {
-                    height: 100vh;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 20px;
-                    color: #64748b;
-                }
-                .loader {
-                    width: 40px;
-                    height: 40px;
-                    border: 4px solid #f1f5f9;
-                    border-top: 4px solid #0f172a;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin { to { transform: rotate(360deg); } }
-                .no-chats-state {
-                    padding: 60px 20px;
-                    text-align: center;
-                    color: #cbd5e1;
-                }
-                .no-chats-state p { margin-top: 16px; font-weight: 500; }
-
+            <style jsx global>{`
                 @media (max-width: 900px) {
-                    .messages-sidebar { width: 320px; }
-                }
-                @media (max-width: 768px) {
-                    .messages-sidebar { width: 100%; border-right: none; }
-                    .messages-sidebar.hidden-mobile { display: none; }
-                    .messages-main.hidden-mobile { display: none; }
-                    .back-btn { display: block; }
+                    .messages-sidebar.mobile-hidden {
+                        display: none !important;
+                    }
+                    .chat-pane-container.mobile-hidden {
+                        display: none !important;
+                    }
+                    .messages-sidebar {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                    }
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '80px', textAlign: 'center' }}><HashLoader text="Loading chats..." /></div>}>
+            <MessagesContent />
+        </Suspense>
     );
 }

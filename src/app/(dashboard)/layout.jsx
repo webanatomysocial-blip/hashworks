@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import DashboardHeader from "@/Components/DashboardHeader.jsx";
-import DashboardMobileNav from "@/Components/DashboardMobileNav.jsx";
+import DashboardHeader from "@/Components/common/DashboardHeader.jsx";
+import DashboardMobileNav from "@/Components/common/DashboardMobileNav.jsx";
+import { StatsProvider } from "@/Components/providers/StatsProvider";
+import Footer from "@/Components/common/Footer.jsx";
+import HashLoader from "@/Components/common/HashLoader.jsx";
 import "@/css/dashboard.css";
 
 export default function DashboardLayout({ children }) {
@@ -61,23 +64,31 @@ export default function DashboardLayout({ children }) {
     checkAndSyncUser();
   }, [router]);
 
+  const hideGlobalHeader = [
+    "/worker/browse/detail",
+    "/hirer/postings",
+    "/messages",
+  ].some(path => pathname?.startsWith(path));
+
   if (loading) {
-    return (
-      <div className="loading-state">
-        <div className="loading-spinner"></div>
-        <p>Authenticating...</p>
-      </div>
-    );
+    return <HashLoader text="" />;
   }
 
   return (
     <div className="dashboard-layout">
-      <DashboardHeader />
-      <main className="dashboard-main">{children}</main>
-      <DashboardMobileNav
-        onAddClick={() => router.push("/hirer/postings/create")}
-        role={role}
-      />
+      <StatsProvider>
+        {!hideGlobalHeader && <DashboardHeader />}
+        <main className={(pathname?.includes("/worker/browse/detail") || pathname?.includes("/messages") || pathname?.includes("/hirer/postings")) ? "" : "dashboard-main"}>
+          {children}
+          {/* <Footer /> */}
+        </main>
+        {!hideGlobalHeader && (
+          <DashboardMobileNav
+            onAddClick={() => router.push("/hirer/postings/create")}
+            role={role}
+          />
+        )}
+      </StatsProvider>
     </div>
   );
 }

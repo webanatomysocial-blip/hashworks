@@ -147,6 +147,191 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
+/* --- Premium Wizard Styles --- */
+.hw-wizard-header {
+    background: #fff;
+    padding: 24px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.hw-step-indicator {
+    padding: 0 16px;
+    margin-bottom: 32px;
+}
+
+.hw-progress-track {
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.hw-progress-fill {
+    height: 100%;
+    background: #1C4DFF;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hw-step-labels {
+    display: flex;
+    justify-content: space-between;
+}
+
+.hw-step-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #94a3b8;
+    letter-spacing: 1px;
+}
+
+.hw-step-label--active {
+    color: #1C4DFF;
+}
+
+.hw-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.hw-chip {
+    padding: 12px 24px;
+    border-radius: 14px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 700;
+    font-size: 14.5px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.hw-chip--active {
+    background: #1C4DFF;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(28, 77, 255, 0.25);
+}
+
+.hw-price-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.hw-price-card {
+    background: #f1f5f9;
+    border-radius: 20px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    border: 2.5px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.hw-price-card--active {
+    background: #fff;
+    border-color: #1C4DFF;
+    box-shadow: 0 12px 30px rgba(28, 77, 255, 0.1);
+}
+
+.hw-price-value {
+    font-size: 26px;
+    font-weight: 900;
+    color: #0F172A;
+    margin-bottom: 4px;
+}
+
+.hw-price-desc {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hw-badge-promo {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #c7f284;
+    color: #0F172A;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.hw-nav-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    padding: 20px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    z-index: 100;
+}
+
+.hw-footer-spacer {
+    height: 100px; /* Space for the fixed footer */
+}
+
+.hw-pro-tip {
+    background: #eef2ff;
+    padding: 20px;
+    border-radius: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.hw-icon-circle {
+    width: 44px;
+    height: 44px;
+    background: #fff;
+    color: #1C4DFF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Form refinement */
+.hw-floating-input {
+    width: 100%;
+    background: #f1f5f9;
+    border: none;
+    padding: 20px 24px;
+    border-radius: 18px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0F172A;
+}
+
+.hw-floating-input::placeholder {
+    color: #94a3b8;
+}
+
+.hw-floating-label {
+    font-size: 11px;
+    font-weight: 900;
+    color: #475569;
+    margin-bottom: 10px;
+    display: block;
+    letter-spacing: 1px;
+}
+
 /* Detailed Job Card */
 .mp-job-card {
     background: #ffffff;
@@ -336,7 +521,7 @@
 
 .hirer-dashboard {
     width: 100%;
-    padding-bottom: 32px;
+    padding: 30px 20px 80px 20px;
 }
 
 /* Loading */
@@ -1255,4 +1440,42 @@
     letter-spacing: 0;
     margin-left: 4px;
     font-size: 11px;
+}
+
+/* =============================================
+   POST JOB FORM STYLES (REFACTORED)
+   ============================================= */
+
+.wh-select {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.wh-select:focus { border-color: #4f74ff; }
+.wh-file-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1.5px dashed #cbd5e1;
+    background: #f8fafc;
+    cursor: pointer;
+}
+.wh-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hw-btn--locked {
+    background: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
 }

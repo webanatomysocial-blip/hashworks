@@ -3,9 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { FiSearch, FiSliders } from "react-icons/fi";
-import WorkerFilterModal from "@/Components/WorkerFilterModal";
+import { FiSearch, FiSliders, FiMapPin } from "react-icons/fi";
+import WorkerFilterModal from "@/Components/worker/WorkerFilterModal";
+import HashLoader from "@/Components/common/HashLoader";
 import "@/css/worker.css";
+
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Button } from "@/Components/ui/Button";
+import { JobCard } from "@/Components/ui/JobCard";
+import { EmptyState } from "@/Components/ui/EmptyState";
 
 export default function BrowseJobsPage() {
   const router = useRouter();
@@ -22,25 +28,10 @@ export default function BrowseJobsPage() {
     location_type: "all",
     urgency: "all",
     city: "",
-    radius: 0,
+    radius: 50, // Default to 50km
   });
 
   const [userCoords, setUserCoords] = useState(null);
-
-  const getDistance = (lat1, lon1, lat2, lon2) => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
-    const R = 6371; // km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
 
   useEffect(() => {
     fetchJobs();
@@ -49,12 +40,9 @@ export default function BrowseJobsPage() {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch user's own location once if not already fetched
       let currentUserCoords = userCoords;
       if (!currentUserCoords) {
         const { data: profile } = await supabase
@@ -62,369 +50,153 @@ export default function BrowseJobsPage() {
           .select("latitude, longitude")
           .eq("id", user.id)
           .single();
-        if (profile) {
-          currentUserCoords = {
-            lat: profile.latitude,
-            lon: profile.longitude,
-          };
+        if (profile?.latitude && profile?.longitude) {
+          currentUserCoords = { lat: profile.latitude, lon: profile.longitude };
           setUserCoords(currentUserCoords);
         }
       }
 
-      // 1. Build Base Query - MUST select hirer coords for distance filter
-      let jobsQuery = supabase
-        .from("jobs")
-        .select(
-          `
-                    id, title, category, budget_min, budget_max, location_type, city, urgency, created_at, status, hirer_id,
-                    profiles!jobs_hirer_id_fkey (id, first_name, last_name, is_deleted, latitude, longitude)
-                `,
-        )
-        .eq("status", "active")
-        .neq("hirer_id", user.id)
-        .eq("profiles.is_deleted", false);
+      // If user has no coordinates, we do a basic filtered query instead of RPC
+      if (!currentUserCoords) {
+        let query = supabase
+          .from("jobs")
+          .select("*, profiles!jobs_hirer_id_fkey(first_name, last_name, avatar_url)")
+          .eq("status", "active");
 
-      // 2. Apply Filters (Server-Side)
-      if (filters.category !== "all") {
-        jobsQuery = jobsQuery.eq("category", filters.category);
-      }
-      if (filters.location_type !== "all") {
-        jobsQuery = jobsQuery.eq("location_type", filters.location_type);
-      }
-      if (filters.urgency !== "all") {
-        jobsQuery = jobsQuery.eq("urgency", filters.urgency);
-      }
-      if (filters.city) {
-        jobsQuery = jobsQuery.ilike("city", `%${filters.city}%`);
-      }
-      if (filters.budget > 0) {
-        if (filters.budget >= 100000) {
-          jobsQuery = jobsQuery.or(`budget_max.gte.100000,budget_max.is.null`);
-        } else {
-          jobsQuery = jobsQuery.or(
-            `budget_max.gte.${filters.budget},budget_max.is.null`,
-          );
-        }
-      }
+        if (filters.category !== "all") query = query.eq("category", filters.category);
+        if (filters.location_type !== "all") query = query.eq("location_type", filters.location_type);
+        if (filters.urgency !== "all") query = query.eq("urgency", filters.urgency);
+        if (searchTerm) query = query.ilike("title", `%${searchTerm}%`);
 
-      // 3. Search Term
-      if (searchTerm) {
-        jobsQuery = jobsQuery.ilike("title", `%${searchTerm}%`);
-      }
-
-      // 4. Personalized Location Logic
-      if (!filters.city && filters.location_type === "all") {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("city")
-          .eq("id", user.id)
-          .single();
-        if (profileData?.city) {
-          jobsQuery = jobsQuery.or(
-            `location_type.eq.remote,and(location_type.eq.onsite,city.ilike.%${profileData.city}%)`,
-          );
-        }
-      }
-
-      const { data, error } = await jobsQuery.order("created_at", {
-        ascending: false,
-      });
-
-      if (error) throw error;
-      let finalJobs = data || [];
-
-      // 5. Client-Side Radius Filter
-      if (
-        filters.radius > 0 &&
-        currentUserCoords?.lat &&
-        currentUserCoords?.lon
-      ) {
-        finalJobs = finalJobs.filter((job) => {
-          // If remote, maybe ignore radius or allow it?
-          // For now, let's filter based on hirer profile location
-          const hLat = job.profiles?.latitude;
-          const hLon = job.profiles?.longitude;
-          if (!hLat || !hLon) return false;
-
-          const distance = getDistance(
-            currentUserCoords.lat,
-            currentUserCoords.lon,
-            hLat,
-            hLon,
-          );
-          return distance <= filters.radius;
+        const { data, error } = await query.order("created_at", { ascending: false });
+        if (error) throw error;
+        setJobs(data || []);
+      } else {
+        // Use RPC for location-based search
+        const { data, error } = await supabase.rpc('get_nearby_jobs', {
+          user_lat: currentUserCoords.lat,
+          user_lng: currentUserCoords.lon,
+          radius_km: parseFloat(filters.radius || 50),
+          category_filter: filters.category,
+          mode_filter: filters.location_type,
+          urgency_filter: filters.urgency,
+          search_term: searchTerm
         });
+
+        if (error) throw error;
+        setJobs(data || []);
       }
 
-      setJobs(finalJobs);
-
-      // Fetch my applications
-      const { data: appsData } = await supabase
-        .from("applications")
-        .select("job_id")
-        .eq("worker_id", user.id);
-      if (appsData) {
-        setMyApplications(appsData.map((a) => a.job_id));
-      }
-    } catch (err) {
-      console.error("Error fetching jobs:", err);
-    } finally {
-      setLoading(false);
-    }
+      const { data: appsData } = await supabase.from("applications").select("job_id").eq("worker_id", user.id);
+      if (appsData) setMyApplications(appsData.map((a) => a.job_id));
+    } catch (err) { console.error("Error fetching jobs:", err); }
+    finally { setLoading(false); }
   };
 
   const handleApply = async (job) => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        alert("Please log in to apply");
-        return;
-      }
-
-      if (myApplications.includes(job.id)) {
-        alert("You have already applied for this job.");
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert("Please log in to apply"); return; }
+      if (myApplications.includes(job.id)) { alert("You have already applied."); return; }
 
       setApplyingJobId(job.id);
+      const { error: applyError } = await supabase.from("applications").insert([{ job_id: job.id, worker_id: user.id, status: "pending" }]);
 
-      const { error: applyError } = await supabase.from("applications").insert([
-        {
-          job_id: job.id,
-          worker_id: user.id,
-          status: "pending",
-        },
-      ]);
-
-      if (applyError) {
-        console.error("Apply error:", applyError);
-        if (applyError.message.includes("duplicate key value")) {
-          alert("You have already applied for this job.");
-          setMyApplications((prev) => [...prev, job.id]);
-        } else {
-          alert("Failed to apply: " + applyError.message);
-        }
-      } else {
-        setMyApplications((prev) => [...prev, job.id]);
-        alert("Application submitted successfully!");
-      }
-    } catch (err) {
-      console.error("Error applying to job:", err);
-    } finally {
-      setApplyingJobId(null);
-    }
-  };
-
-  const handleApplyFilters = (newFilters) => {
-    setFilters(newFilters);
-  };
-
-  // Results are now filtered at the database level for efficiency
-  const filteredJobs = jobs; // Keeping variable name to avoid refactoring JSX components below
-
-  // Formatting Helpers
-  const formatTimeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hrs = Math.floor(diff / (1000 * 60 * 60));
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
-
-  const formatBudget = (min, max) => {
-    if (!min && !max) return "Negotiable";
-    if (min && !max) return `₹${min.toLocaleString()}+/hr`;
-    if (!min && max) return `Up to ₹${max.toLocaleString()}/hr`;
-    if (min === max) return `₹${min.toLocaleString()} Fixed`;
-    return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}/hr`;
+      if (applyError) throw applyError;
+      setMyApplications((prev) => [...prev, job.id]);
+    } catch (err) { alert("Failed to apply: " + err.message); }
+    finally { setApplyingJobId(null); }
   };
 
   return (
-    <div className="browse-container">
-      {/* Header Area */}
-      <div className="browse-header">
-        <h1>Browse Jobs</h1>
-      </div>
+    <div className="wh-dashboard" style={{ padding: 'var(--space-xl) 0' }}>
+      <PageContainer>
+        <header style={{ marginBottom: 'var(--space-xl)' }}>
+          <h1 className="text-display-xl" style={{ fontSize: '36px', marginBottom: 'var(--space-xs)' }}>Find Work</h1>
+          <p className="text-body-md">Explore premium opportunities tailored for you</p>
+        </header>
 
-      {/* Search & Filter Bar */}
-      <div className="search-filter-row">
-        <div className="search-box">
-          <FiSearch className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search Roles..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <FiSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search Roles..."
+              style={{
+                width: '100%', padding: '12px 12px 12px 48px', borderRadius: 'var(--radius-pill)',
+                border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-surface)',
+                outline: 'none', fontSize: '15px'
+              }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button variant="ghost" onClick={() => setIsFilterModalOpen(true)} style={{ padding: '0 16px' }}>
+            <FiSliders size={20} />
+          </Button>
         </div>
-        <button
-          className="filter-trigger-btn"
-          onClick={() => setIsFilterModalOpen(true)}
-        >
-          <FiSliders size={20} />
-        </button>
-      </div>
 
-      {/* Quick Filter Pills (Horizontal Scroll) */}
-      <div className="quick-filters-scroll">
-        <button
-          className={`quick-pill ${filters.location_type === "remote" ? "active" : ""}`}
-          onClick={() =>
-            setFilters({
-              ...filters,
-              location_type:
-                filters.location_type === "remote" ? "all" : "remote",
-            })
-          }
-        >
-          Remote
-        </button>
-        <button
-          className={`quick-pill ${filters.urgency === "immediate" ? "active" : ""}`}
-          onClick={() =>
-            setFilters({
-              ...filters,
-              urgency: filters.urgency === "immediate" ? "all" : "immediate",
-            })
-          }
-        >
-          Immediate
-        </button>
-        {["Development", "Design", "Marketing", "Other"].map((cat) => {
-          const dbVal = cat.toLowerCase();
-          return (
-            <button
-              key={cat}
-              className={`quick-pill ${filters.category === dbVal ? "active" : ""}`}
-              onClick={() =>
-                setFilters({
-                  ...filters,
-                  category: filters.category === dbVal ? "all" : dbVal,
-                })
-              }
+        <div style={{ display: 'flex', gap: 'var(--space-sm)', overflowX: 'auto', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-xl)' }}>
+          <Button 
+            variant={filters.location_type === "remote" ? "primary" : "ghost"} size="sm"
+            onClick={() => setFilters({ ...filters, location_type: filters.location_type === "remote" ? "all" : "remote" })}
+          >
+            Remote
+          </Button>
+          <Button 
+            variant={filters.urgency === "immediate" ? "primary" : "ghost"} size="sm"
+            onClick={() => setFilters({ ...filters, urgency: filters.urgency === "immediate" ? "all" : "immediate" })}
+          >
+            Immediate
+          </Button>
+          {["Development", "Design", "Marketing"].map((cat) => (
+            <Button 
+              key={cat} size="sm"
+              variant={filters.category === cat.toLowerCase() ? "primary" : "ghost"}
+              onClick={() => setFilters({ ...filters, category: filters.category === cat.toLowerCase() ? "all" : cat.toLowerCase() })}
             >
               {cat}
-            </button>
-          );
-        })}
-      </div>
+            </Button>
+          ))}
+        </div>
 
-      {/* Job Listings */}
-      <div className="job-list-container">
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            Loading jobs...
-          </div>
-        ) : filteredJobs.length === 0 ? (
-          <div className="no-results">
-            No jobs found matching your criteria.
-          </div>
-        ) : (
-          filteredJobs.map((job) => (
-            <div key={job.id} className="browse-job-card">
-              <div className="bjc-header">
-                <div className="bjc-titles">
-                  <h3>{job.title}</h3>
-                  <span className="bjc-company">
-                    {job.profiles?.first_name || ""}{" "}
-                    {job.profiles?.last_name || ""}
-                  </span>
-                </div>
-                {/* <button className="save-bookmark-btn">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                </button> */}
-              </div>
-
-              <div className="bjc-details-grid">
-                <div className="bjc-detail-item">
-                  <strong>Stipend:</strong>{" "}
-                  {formatBudget(job.budget_min, job.budget_max)}
-                </div>
-                <div className="bjc-detail-item">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                    <circle cx="12" cy="10" r="3"></circle>
-                  </svg>
-                  {job.city || "Remote"}
-                </div>
-                <div className="bjc-detail-item time-item">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                  {formatTimeAgo(job.created_at)}
-                </div>
-              </div>
-
-              <div className="bjc-tags">
-                <span className="bjc-tag">
-                  {job.category?.toUpperCase() || "GENERAL"}
-                </span>
-                <span className="bjc-tag">
-                  {job.location_type?.toUpperCase() || "OPEN"}
-                </span>
-              </div>
-
-              <div className="bjc-actions">
-                <button
-                  className="bjc-btn-secondary"
-                  onClick={() =>
-                    router.push(`/worker/browse/detail/?id=${job.id}`)
-                  }
-                >
-                  View Details
-                </button>
-                {myApplications.includes(job.id) ? (
-                  <button
-                    className="bjc-btn-primary applied"
-                    disabled
-                    style={{
-                      backgroundColor: "#e2e8f0",
-                      color: "#64748b",
-                      cursor: "not-allowed",
-                      border: "none",
-                    }}
-                  >
-                    Applied
-                  </button>
-                ) : (
-                  <button
-                    className="bjc-btn-primary"
-                    onClick={() => handleApply(job)}
-                    disabled={applyingJobId === job.id}
-                  >
-                    {applyingJobId === job.id ? "Applying..." : "Apply Now"}
-                  </button>
-                )}
-              </div>
+        <div>
+          {loading ? (
+            <div style={{ padding: 'var(--space-2xl) 0' }}><HashLoader text="" /></div>
+          ) : jobs.length === 0 ? (
+            <EmptyState 
+              title={!userCoords ? "No tasks available" : "No tasks nearby"} 
+              description={!userCoords 
+                ? "We couldn't find any active tasks. Try checking back later or adjusting your category filters."
+                : "Try expanding your search radius or checking different categories."
+              }
+              icon={<FiMapPin size={32} />}
+              actionLabel="Refresh Search"
+              onAction={fetchJobs}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {jobs.map((job) => (
+                <JobCard 
+                  key={job.id}
+                  job={job}
+                  distance={job.distance}
+                  isApplied={myApplications.includes(job.id)}
+                  isApplying={applyingJobId === job.id}
+                  onViewDetails={(id) => router.push(`/worker/browse/detail/?id=${id}`)}
+                  onApply={handleApply}
+                />
+              ))}
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      </PageContainer>
 
-      {/* Filter Modal */}
       <WorkerFilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         filters={filters}
-        onApply={handleApplyFilters}
+        onApply={(newFilters) => setFilters(newFilters)}
       />
     </div>
   );

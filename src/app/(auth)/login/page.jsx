@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import HashLoader from '@/Components/common/HashLoader';
 import '@/css/auth.css';
 
 export default function Login() {
@@ -128,7 +129,7 @@ export default function Login() {
                     </div>
 
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
-                        {loading ? 'Logging in...' : 'Log In'}
+                        {loading ? <HashLoader text="" /> : 'Log In'}
                     </button>
                 </form>
 

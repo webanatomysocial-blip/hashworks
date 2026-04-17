@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import HashLoader from './HashLoader';
 import '@/css/dashboard.css';
 
 export default function ConfirmModal({
@@ -12,7 +13,7 @@ export default function ConfirmModal({
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     loading = false,
-    variant = 'destructive' // 'destructive' or 'primary'
+    variant = 'destructive'
 }) {
     const [isClosing, setIsClosing] = useState(false);
 
@@ -56,7 +57,7 @@ export default function ConfirmModal({
                         onClick={onConfirm}
                         disabled={loading}
                     >
-                        {loading ? 'Processing...' : confirmText}
+                        {loading ? <HashLoader text="" /> : confirmText}
                     </button>
                 </div>
             </div>

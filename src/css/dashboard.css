@@ -232,7 +232,7 @@ nav.mobile-nav[data-role="worker"] .mobile-nav-item.active .nav-icon-wrap {
 /* Main Content Area */
 .dashboard-main {
     flex: 1;
-    padding: 24px 20px 88px 20px;
+    padding: 0px 0px 0px 0px;
     /* Extra bottom padding for mobile nav */
     max-width: 1200px;
     margin: 0 auto;

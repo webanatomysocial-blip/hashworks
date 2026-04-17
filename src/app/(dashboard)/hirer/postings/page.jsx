@@ -8,10 +8,12 @@ import {
     FiUsers, FiEye, FiMoreVertical, FiEdit2, FiTrash2, FiArrowLeft, FiXCircle, FiPlayCircle
 } from 'react-icons/fi';
 import { BsBriefcase } from 'react-icons/bs';
-import ConfirmModal from '@/Components/ConfirmModal';
+import ConfirmModal from '@/Components/common/ConfirmModal';
+import HashLoader from '@/Components/common/HashLoader';
+import { formatLocationShort } from '@/lib/location';
 import '@/css/hirer.css';
 import { useRouter } from 'next/navigation';
-
+import { TaskCard } from '@/Components/ui/TaskCard';
 
 export default function ManagePostings() {
     const router = useRouter();
@@ -132,7 +134,7 @@ export default function ManagePostings() {
         return matchesSearch && matchesTab;
     });
 
-    if (loading) return <div className="loading-state">Loading postings...</div>;
+    if (loading) return <HashLoader text="" />;
 
     return (
         <div className="hirer-dashboard">
@@ -191,90 +193,61 @@ export default function ManagePostings() {
                     filteredJobs.map(job => {
                         const appCount = applications.filter(a => a.job_id === job.id).length;
                         return (
-                            <div key={job.id} className="mp-job-card">
-                                <div className="mp-job-top">
-                                    <div style={{ flex: 1 }}>
-                                        <h3 className="mp-job-title">{job.title}</h3>
-                                        <div className="mp-job-badges">
-                                            <span className={`hd-status-badge ${job.status}`}>
-                                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        className="mp-kebab"
-                                        title="Options"
-                                        onClick={(e) => toggleDropdown(e, job.id)}
-                                    >
-                                        <FiMoreVertical />
-                                    </button>
-
-                                    {openDropdownId === job.id && (
-                                        <div className="mp-dropdown">
-                                            <button
-                                                className="mp-dropdown-item"
-                                                onClick={() => handleEdit(job)}
+                            <div key={job.id} style={{ marginBottom: '24px' }}>
+                                <TaskCard
+                                    topTitleLabel="DATE POSTED"
+                                    title={job.title}
+                                    thumbnailUrl={job.reference_image_url}
+                                    thumbnailFallbackIcon={<BsBriefcase size={28} color="#64748B" />}
+                                    badge={{ 
+                                        text: job.status.toUpperCase(), 
+                                        bg: job.status === 'active' ? '#DCFCE7' : job.status === 'closed' ? '#FEE2E2' : '#F1F5F9', 
+                                        color: job.status === 'active' ? '#16A34A' : job.status === 'closed' ? '#EF4444' : '#475569' 
+                                    }}
+                                    metrics={[
+                                        { label: 'APPLICANTS', value: appCount.toString(), valueColor: '#1C4DFF', valueSize: '16px' },
+                                        { label: 'LOCATION', value: job.location_type === 'remote' ? 'Remote' : (job.city || 'Anywhere') },
+                                        { label: 'PAYOUT', value: job.budget_max ? `₹${job.budget_max.toLocaleString()}` : (job.budget_min ? `₹${job.budget_min.toLocaleString()}` : '-') }
+                                    ]}
+                                    footerMessage={null}
+                                    actionButtons={
+                                        <div style={{ display: 'flex', gap: '12px', width: '100%', position: 'relative' }}>
+                                            <button 
+                                                onClick={() => router.push(`/hirer/postings/review/?id=${job.id}`)}
+                                                style={{ flex: 1, background: '#1C4DFF', color: '#fff', border: 'none', borderRadius: '22px', height: '44px', fontWeight: 800, cursor: 'pointer' }}
                                             >
-                                                <FiEdit2 /> Edit Job
+                                                Review Applicants
                                             </button>
-                                            {job.status === 'active' && (
-                                                <button
-                                                    className="mp-dropdown-item close"
-                                                    onClick={() => updateJobStatus(job.id, 'closed')}
-                                                >
-                                                    <FiXCircle /> Close Job
-                                                </button>
-                                            )}
-                                            {job.status === 'closed' && (
-                                                <button
-                                                    className="mp-dropdown-item open"
-                                                    onClick={() => updateJobStatus(job.id, 'active')}
-                                                >
-                                                    <FiPlayCircle /> Open Job
-                                                </button>
-                                            )}
                                             <button
-                                                className="mp-dropdown-item delete"
-                                                onClick={() => promptDelete(job)}
+                                                onClick={(e) => toggleDropdown(e, job.id)}
+                                                style={{ width: '44px', height: '44px', borderRadius: '22px', background: '#E2E8F0', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569', flexShrink: 0 }}
                                             >
-                                                <FiTrash2 /> Delete Job
+                                                <FiMoreVertical size={20} />
                                             </button>
+
+                                            {openDropdownId === job.id && (
+                                                <div className="mp-dropdown" style={{ top: '50px', right: '0', zIndex: 100 }}>
+                                                    <button className="mp-dropdown-item" onClick={() => handleEdit(job)}>
+                                                        <FiEdit2 /> Edit Job
+                                                    </button>
+                                                    {job.status === 'active' && (
+                                                        <button className="mp-dropdown-item close" onClick={() => updateJobStatus(job.id, 'closed')}>
+                                                            <FiXCircle /> Close Job
+                                                        </button>
+                                                    )}
+                                                    {job.status === 'closed' && (
+                                                        <button className="mp-dropdown-item open" onClick={() => updateJobStatus(job.id, 'active')}>
+                                                            <FiPlayCircle /> Open Job
+                                                        </button>
+                                                    )}
+                                                    <button className="mp-dropdown-item delete" onClick={() => promptDelete(job)}>
+                                                        <FiTrash2 /> Delete Job
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-
-                                <div className="mp-job-loc-date">
-                                    <span className="mp-icon-text">
-                                        <FiMapPin /> {job.city || (job.location_type === 'remote' ? 'Remote' : 'Various')}
-                                    </span>
-                                    <span className="mp-icon-text">
-                                        <FiCalendar /> {new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                    </span>
-                                </div>
-
-                                <div className="mp-metrics-row">
-                                    <div className="mp-metric">
-                                        <span className="mp-metric-label">Applicants</span>
-                                        <span className="mp-metric-value">
-                                            <FiUsers className="mp-metric-icon" /> {appCount}
-                                        </span>
-                                    </div>
-                                    <div className="mp-metric">
-                                        <span className="mp-metric-label">Role Type</span>
-                                        <span className="mp-metric-value">
-                                            <BsBriefcase className="mp-metric-icon" /> {job.role_type || 'Gig'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="mp-job-bottom">
-                                    <div className="mp-budget">
-                                        {job.budget_min ? `₹${job.budget_min.toLocaleString()} - ₹${job.budget_max?.toLocaleString()} /hr` : 'Budget Not Specified'}
-                                    </div>
-                                    <Link href={`/hirer/postings/review/?id=${job.id}`} className="mp-review-btn">
-                                        Review Applicants
-                                    </Link>
-                                </div>
+                                    }
+                                />
                             </div>
                         );
                     })

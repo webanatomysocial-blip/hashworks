@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import HashLoader from '@/Components/common/HashLoader.jsx';
 import '@/css/role.css';
 
 export default function RoleSelection() {
@@ -23,12 +24,7 @@ export default function RoleSelection() {
     }, [router]);
 
     if (loading) {
-        return (
-            <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <p>Authenticating...</p>
-            </div>
-        );
+        return <HashLoader text="" />;
     }
 
     const handleNext = () => {

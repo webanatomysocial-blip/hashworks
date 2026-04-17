@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiEdit2, FiSave, FiCheckCircle, FiPlus } from 'react-icons/fi';
+import { FiEdit2, FiSave, FiCheckCircle, FiPlus, FiArrowLeft, FiTrash2 } from 'react-icons/fi';
+import HashLoader from '@/Components/common/HashLoader';
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Card } from "@/Components/ui/Card";
+import { Button } from "@/Components/ui/Button";
+import { Input, TextArea } from "@/Components/ui/Input";
+import { Badge } from "@/Components/ui/Badge";
 import '@/css/profile.css';
 
 export default function HirerProfilePage() {
@@ -34,28 +40,22 @@ export default function HirerProfilePage() {
     const [isEditingBase, setIsEditingBase] = useState(false);
     const [isEditingCompany, setIsEditingCompany] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                router.push('/');
+                router.push('/auth/login');
                 return;
             }
             setUser(user);
 
             // Fetch Base Profile
-            const { data: profileData, error: profileError } = await supabase
+            const { data: profileData } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
                 .single();
-
-            if (profileError) throw profileError;
 
             if (profileData) {
                 setProfile({
@@ -73,7 +73,7 @@ export default function HirerProfilePage() {
                 .from('company_details')
                 .select('*')
                 .eq('hirer_id', user.id)
-                .single();
+                .maybeSingle();
 
             if (companyData) {
                 setCompany({
@@ -88,11 +88,14 @@ export default function HirerProfilePage() {
 
         } catch (error) {
             console.error('Error fetching hirer profile:', error);
-            alert("Failed to load profile data.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [router]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleBaseSave = async () => {
         setSaving(true);
@@ -102,12 +105,11 @@ export default function HirerProfilePage() {
                 last_name: profile.last_name,
                 phone: profile.phone,
                 country: profile.country,
+                updated_at: new Date().toISOString()
             };
 
-            // Only include username if it has a value to avoid unique constraint 
-            // violations on empty strings if one is already taken.
             if (profile.username && profile.username.trim() !== '') {
-                updateData.username = profile.username;
+                updateData.username = profile.username.trim();
             }
 
             const { error } = await supabase
@@ -117,10 +119,9 @@ export default function HirerProfilePage() {
 
             if (error) throw error;
             setIsEditingBase(false);
-            fetchData();
         } catch (error) {
             console.error('Error saving base profile:', error);
-            alert(`Failed to save profile: ${error.message || 'Unknown error'}`);
+            alert(`Failed to save profile: ${error.message}`);
         } finally {
             setSaving(false);
         }
@@ -139,7 +140,7 @@ export default function HirerProfilePage() {
                 .from('company_details')
                 .select('id')
                 .eq('hirer_id', user.id)
-                .single();
+                .maybeSingle();
 
             if (existing) {
                 const { error } = await supabase
@@ -155,200 +156,171 @@ export default function HirerProfilePage() {
             }
 
             setIsEditingCompany(false);
-            fetchData();
         } catch (error) {
             console.error('Error saving company:', error);
-            alert(`Failed to save company details: ${error.message || 'Unknown error'}`);
+            alert(`Failed to save company: ${error.message}`);
         } finally {
             setSaving(false);
         }
     };
 
     const handleDeleteAccount = async () => {
-        if (!confirm("Are you sure? This will hide your profile and jobs from everyone. You can contact support to recover it.")) return;
-
+        if (!confirm("Are you sure? This will hide your profile and jobs. This action is significant.")) return;
         setSaving(true);
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString()
-                })
+                .update({ is_deleted: true, deleted_at: new Date().toISOString() })
                 .eq('id', user.id);
-
             if (error) throw error;
-
-            alert("Account deleted successfully.");
             await supabase.auth.signOut();
             router.push('/');
         } catch (error) {
             console.error('Error deleting account:', error);
-            alert(`Failed to delete account: ${error.message}`);
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div className="profile-loading">Loading Hirer Profile...</div>;
+    if (loading) return <HashLoader text="" />;
 
     const companyComplete = !!company.company_name;
 
     return (
-        <div className="profile-dashboard">
-            <header className="profile-header">
-                <div>
-                    <h1>Hirer Profile</h1>
-                </div>
-                <div className="completeness-indicator">
-                    <div className="comp-text">
-                        <span>Company Status</span>
-                        <span>{companyComplete ? 'Ready to Post' : 'Incomplete'}</span>
+        <div className="wh-dashboard" style={{ padding: 'var(--space-xl) 0' }}>
+            <PageContainer>
+                <header style={{ marginBottom: 'var(--space-2xl)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div>
+                        <h1 className="text-display-xl" style={{ fontSize: '32px' }}>Profile Settings</h1>
+                        <p className="text-body-md" style={{ marginTop: '4px' }}>Manage your recruiter and company identity</p>
                     </div>
-                    <div className="comp-bar-bg">
-                        <div className="comp-bar-fill" style={{ width: companyComplete ? '100%' : '50%', background: companyComplete ? '#10b981' : '#f59e0b' }}></div>
-                    </div>
-                </div>
-            </header>
+                    <Badge variant={companyComplete ? "active" : "waiting"} showDot>
+                        {companyComplete ? "Ready to Hire" : "Incomplete Profile"}
+                    </Badge>
+                </header>
 
-            <div className="profile-grid">
-                <div className="profile-col-main">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--space-xl)', alignItems: 'start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
+                        
+                        {/* ── RECRUITER INFO ── */}
+                        <Card variant="elevated" padding="xl">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
+                                <h2 className="text-headline-lg">Recruiter Identity</h2>
+                                {!isEditingBase ? (
+                                    <Button variant="ghost" size="sm" onClick={() => setIsEditingBase(true)}>
+                                        <FiEdit2 /> Edit Profile
+                                    </Button>
+                                ) : (
+                                    <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                        <Button variant="ghost" size="sm" onClick={() => setIsEditingBase(false)}>Cancel</Button>
+                                        <Button variant="primary" size="sm" onClick={handleBaseSave} disabled={saving}>{saving ? "..." : "Save Changes"}</Button>
+                                    </div>
+                                )}
+                            </div>
 
-                    {/* BASE INFO */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Recruiter Information</h2>
                             {!isEditingBase ? (
-                                <button className="edit-icon-btn" onClick={() => setIsEditingBase(true)}>
-                                    <FiEdit2 /> Edit
-                                </button>
-                            ) : (
-                                <div className="edit-actions">
-                                    <button className="cancel-btn" onClick={() => setIsEditingBase(false)}>Cancel</button>
-                                    <button className="save-btn" onClick={handleBaseSave} disabled={saving}>Save</button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="card-body">
-                            {!isEditingBase ? (
-                                <div className="info-display">
-                                    <div className="avatar-section">
-                                        <div className="avatar-circle">
-                                            {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" /> : <span>{profile.first_name?.charAt(0)}</span>}
-                                        </div>
-                                        <div className="avatar-titles">
-                                            <h3>{profile.first_name} {profile.last_name}</h3>
-                                            <p className="headline-text">Official Hirer Account</p>
-                                        </div>
+                                <div style={{ display: 'flex', gap: 'var(--space-xl)', alignItems: 'center' }}>
+                                    <div style={{ 
+                                        width: '80px', height: '80px', borderRadius: 'var(--radius-pill)', 
+                                        backgroundColor: 'var(--color-border-light)', display: 'flex', 
+                                        alignItems: 'center', justifyContent: 'center', fontSize: '28px', color: 'var(--color-primary)', fontWeight: '700'
+                                    }}>
+                                        {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : profile.first_name?.charAt(0)}
                                     </div>
-                                    <div className="info-grid">
-                                        <div className="info-item">
-                                            <label>Phone</label>
-                                            <p>{profile.phone || 'Not set'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Country</label>
-                                            <p>{profile.country || 'Not set'}</p>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 className="text-title-md">{profile.first_name} {profile.last_name}</h3>
+                                        <p className="text-body-md" style={{ color: 'var(--color-text-sub)' }}>{profile.username ? `@${profile.username}` : 'Official Hirer Account'}</p>
+                                        <div style={{ display: 'flex', gap: 'var(--space-xl)', marginTop: 'var(--space-md)' }}>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Phone</span>
+                                                <span className="text-body-md">{profile.phone || '—'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Country</span>
+                                                <span className="text-body-md">{profile.country || '—'}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="info-edit-form">
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>First Name</label>
-                                            <input type="text" value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value })} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Last Name</label>
-                                            <input type="text" value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value })} />
-                                        </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                                        <Input label="First Name" value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value })} />
+                                        <Input label="Last Name" value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value })} />
                                     </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Phone</label>
-                                            <input type="text" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Country</label>
-                                            <input type="text" value={profile.country} onChange={(e) => setProfile({ ...profile, country: e.target.value })} />
-                                        </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                                        <Input label="Phone Number" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
+                                        <Input label="Country" value={profile.country} onChange={(e) => setProfile({ ...profile, country: e.target.value })} />
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
+                        </Card>
 
-                    {/* COMPANY DETAILS */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Company Details</h2>
+                        {/* ── COMPANY DETAILS ── */}
+                        <Card variant="elevated" padding="xl">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
+                                <h2 className="text-headline-lg">Company Details</h2>
+                                {!isEditingCompany ? (
+                                    <Button variant="ghost" size="sm" onClick={() => setIsEditingCompany(true)}>
+                                        <FiEdit2 /> Edit Company
+                                    </Button>
+                                ) : (
+                                    <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                        <Button variant="ghost" size="sm" onClick={() => setIsEditingCompany(false)}>Cancel</Button>
+                                        <Button variant="primary" size="sm" onClick={handleCompanySave} disabled={saving}>{saving ? "..." : "Save Company"}</Button>
+                                    </div>
+                                )}
+                            </div>
+
                             {!isEditingCompany ? (
-                                <button className="edit-icon-btn" onClick={() => setIsEditingCompany(true)}>
-                                    <FiEdit2 /> Edit
-                                </button>
-                            ) : (
-                                <div className="edit-actions">
-                                    <button className="cancel-btn" onClick={() => setIsEditingCompany(false)}>Cancel</button>
-                                    <button className="save-btn" onClick={handleCompanySave} disabled={saving}>Save Company</button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="card-body">
-                            {!isEditingCompany ? (
-                                company.company_name ? (
-                                    <div className="info-display">
-                                        <div className="info-grid">
-                                            <div className="info-item">
-                                                <label>Company Name</label>
-                                                <p>{company.company_name}</p>
+                                companyComplete ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Organization</span>
+                                                <span className="text-body-lg" style={{ fontWeight: '600' }}>{company.company_name}</span>
                                             </div>
-                                            <div className="info-item">
-                                                <label>Industry</label>
-                                                <p>{company.industry || 'Not set'}</p>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Industry</span>
+                                                <span className="text-body-lg">{company.industry || '—'}</span>
                                             </div>
-                                            <div className="info-item">
-                                                <label>Website</label>
-                                                <p>{company.website || 'Not set'}</p>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Website</span>
+                                                <span className="text-body-lg" style={{ color: 'var(--color-primary)' }}>{company.website || '—'}</span>
                                             </div>
-                                            <div className="info-item">
-                                                <label>Company Size</label>
-                                                <p>{company.company_size || 'Not set'}</p>
+                                            <div>
+                                                <span className="text-label-sm" style={{ display: 'block' }}>Size</span>
+                                                <span className="text-body-lg">{company.company_size || '—'}</span>
                                             </div>
                                         </div>
-                                        <div className="info-item full-width" style={{ marginTop: '20px' }}>
-                                            <label>About Company</label>
-                                            <p className="bio-text">{company.company_description || 'No description provided.'}</p>
+                                        <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 'var(--space-lg)' }}>
+                                            <span className="text-label-sm" style={{ display: 'block', marginBottom: '8px' }}>Description</span>
+                                            <p className="text-body-md" style={{ lineHeight: '1.6' }}>{company.company_description || 'No description provided.'}</p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="empty-state-cta">
-                                        <p>You haven't set up your company profile yet.</p>
-                                        <button className="setup-btn" onClick={() => setIsEditingCompany(true)}>
-                                            <FiPlus /> Set Up Company Profile
-                                        </button>
+                                    <div style={{ textAlign: 'center', padding: 'var(--space-xl) 0', border: '1.5px dashed var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
+                                        <p className="text-body-md" style={{ marginBottom: 'var(--space-md)' }}>You haven't set up your company profile yet.</p>
+                                        <Button variant="primary" onClick={() => setIsEditingCompany(true)}>
+                                            <FiPlus /> Initialize Company Profile
+                                        </Button>
                                     </div>
                                 )
                             ) : (
-                                <div className="info-edit-form">
-                                    <div className="form-group">
-                                        <label>Company Name *</label>
-                                        <input type="text" value={company.company_name} onChange={(e) => setCompany({ ...company, company_name: e.target.value })} placeholder="e.g. HashWorks Inc." />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                                    <Input label="Company Name *" value={company.company_name} onChange={(e) => setCompany({ ...company, company_name: e.target.value })} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                                        <Input label="Industry" value={company.industry} onChange={(e) => setCompany({ ...company, industry: e.target.value })} />
+                                        <Input label="Website URL" value={company.website} onChange={(e) => setCompany({ ...company, website: e.target.value })} />
                                     </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Industry</label>
-                                            <input type="text" value={company.industry} onChange={(e) => setCompany({ ...company, industry: e.target.value })} placeholder="e.g. Tech Services" />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Website</label>
-                                            <input type="text" value={company.website} onChange={(e) => setCompany({ ...company, website: e.target.value })} placeholder="https://..." />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Company Size</label>
-                                            <select value={company.company_size} onChange={(e) => setCompany({ ...company, company_size: e.target.value })} className="skill-select">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <label className="text-label-sm">Company Size</label>
+                                            <select 
+                                                value={company.company_size} 
+                                                onChange={(e) => setCompany({ ...company, company_size: e.target.value })}
+                                                style={{ padding: '12px', borderRadius: 'var(--radius-md)', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                                            >
                                                 <option value="">Select size...</option>
                                                 <option value="1-10">1-10 employees</option>
                                                 <option value="11-50">11-50 employees</option>
@@ -357,104 +329,38 @@ export default function HirerProfilePage() {
                                                 <option value="500+">500+ employees</option>
                                             </select>
                                         </div>
-                                        <div className="form-group">
-                                            <label>Founded Year</label>
-                                            <input type="number" value={company.founded_year} onChange={(e) => setCompany({ ...company, founded_year: e.target.value })} placeholder="2020" />
-                                        </div>
+                                        <Input type="number" label="Founded Year" value={company.founded_year} onChange={(e) => setCompany({ ...company, founded_year: e.target.value })} />
                                     </div>
-                                    <div className="form-group">
-                                        <label>Company Description</label>
-                                        <textarea rows="4" value={company.company_description} onChange={(e) => setCompany({ ...company, company_description: e.target.value })} placeholder="Tell workers about your company culture and mission..."></textarea>
-                                    </div>
+                                    <TextArea label="Company Description" rows={5} value={company.company_description} onChange={(e) => setCompany({ ...company, company_description: e.target.value })} />
                                 </div>
                             )}
-                        </div>
+                        </Card>
                     </div>
+
+                    {/* SIDEBAR */}
+                    <aside style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                        <Card variant="bordered" padding="lg">
+                            <h3 className="text-title-md" style={{ marginBottom: 'var(--space-md)' }}>Quick Actions</h3>
+                            <Button variant="ghost" onClick={() => router.push('/hirer/postings')} style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '8px' }}>
+                                View All My Postings
+                            </Button>
+                            <Button variant="ghost" onClick={() => router.push('/hirer/postings/create')} style={{ width: '100%', justifyContent: 'flex-start' }}>
+                                Create New Posting
+                            </Button>
+                        </Card>
+
+                        <Card variant="flat" padding="lg" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+                            <h3 className="text-title-md" style={{ color: '#991b1b', marginBottom: '8px' }}>Danger Zone</h3>
+                            <p className="text-label-sm" style={{ color: '#b91c1c', marginBottom: '16px', lineHeight: '1.5' }}>
+                                Deleting your account will hide your identity and all active job postings immediately.
+                            </p>
+                            <Button variant="secondary" onClick={handleDeleteAccount} style={{ width: '100%', color: '#991b1b', borderColor: '#fecaca' }}>
+                                <FiTrash2 /> Deactivate Account
+                            </Button>
+                        </Card>
+                    </aside>
                 </div>
-
-                <div className="profile-col-side">
-                    <div className="profile-card stats-card">
-                        <h2>Quick Stats</h2>
-                        <div className="stat-item">
-                            <span className="stat-label">Active Postings</span>
-                            <span className="stat-value">0</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Total Spent</span>
-                            <span className="stat-value">₹0</span>
-                        </div>
-                    </div>
-
-                    {!companyComplete && (
-                        <div className="alert-card warning">
-                            <h3>Complete Profile</h3>
-                            <p>You must set up a company profile before you can post any jobs.</p>
-                        </div>
-                    )}
-
-                    <div className="profile-card delete-card" style={{ marginTop: '20px', border: '1px solid #fee2e2', padding: '20px' }}>
-                        <h3 style={{ color: '#991b1b', fontSize: '16px', marginBottom: '8px' }}>Danger Zone</h3>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
-                            Soft-deleting your account will hide your profile and all your job postings from the platform.
-                        </p>
-                        <button
-                            className="delete-account-btn"
-                            onClick={handleDeleteAccount}
-                            disabled={saving}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                background: '#fee2e2',
-                                color: '#991b1b',
-                                border: '1px solid #fecaca',
-                                borderRadius: '8px',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {saving ? 'Processing...' : 'Delete My Account'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <style jsx>{`
-                .setup-btn {
-                    margin-top: 12px;
-                    padding: 12px 24px;
-                    background: #3b82f6;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    cursor: pointer;
-                }
-                .empty-state-cta {
-                    text-align: center;
-                    padding: 40px 0;
-                    color: #64748b;
-                }
-                .alert-card.warning {
-                    background: #fffbeb;
-                    border: 1px solid #fde68a;
-                    padding: 20px;
-                    border-radius: 16px;
-                }
-                .alert-card.warning h3 {
-                    color: #92400e;
-                    font-size: 16px;
-                    margin: 0 0 8px 0;
-                }
-                .alert-card.warning p {
-                    color: #b45309;
-                    font-size: 14px;
-                    margin: 0;
-                    line-height: 1.5;
-                }
-            `}</style>
+            </PageContainer>
         </div>
     );
 }

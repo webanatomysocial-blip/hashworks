@@ -8,7 +8,14 @@ import {
     FiCheckCircle, FiStar, FiClock, FiDollarSign,
     FiUser, FiMail, FiExternalLink, FiChevronLeft
 } from 'react-icons/fi';
+import HashLoader from '@/Components/common/HashLoader';
+import { formatLocation } from '@/lib/location';
 import '@/css/profile.css';
+
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Card } from "@/Components/ui/Card";
+import { Badge } from "@/Components/ui/Badge";
+import { Button } from "@/Components/ui/Button";
 
 function ProfileContent() {
     const router = useRouter();
@@ -42,21 +49,15 @@ function ProfileContent() {
             if (!user) throw new Error('Not authenticated');
             setViewer(user);
 
-            // 1. Fetch the target profile
             const { data: prof, error: profErr } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', targetId)
                 .single();
 
-            if (profErr) {
-                console.error('Supabase Error (Profiles):', profErr);
-                throw new Error(profErr.code === 'PGRST116' ? 'Profile not found' : `Database Error: ${profErr.message}`);
-            }
-            if (!prof) throw new Error('Profile not found');
+            if (profErr) throw new Error(profErr.code === 'PGRST116' ? 'Profile not found' : `Database Error: ${profErr.message}`);
             setProfile(prof);
 
-            // 2. Determine Relationship & Role
             const { data: asHirer } = await supabase
                 .from('applications')
                 .select('id, jobs(hirer_id)')
@@ -71,7 +72,6 @@ function ProfileContent() {
                 .eq('jobs.hirer_id', user.id)
                 .maybeSingle();
 
-            // Check for Job connection if no application yet (Worker viewing Hirer from Job page)
             const { data: jobConnection } = await supabase
                 .from('jobs')
                 .select('id')
@@ -86,7 +86,6 @@ function ProfileContent() {
                 setRole('worker');
                 await fetchWorkerData(targetId);
             } else if (jobConnection && user.id !== targetId) {
-                // Allow worker to view hirer profile if they are viewing one of their jobs
                 setRole('hirer');
                 await fetchHirerData(targetId);
             } else {
@@ -139,227 +138,142 @@ function ProfileContent() {
         setReviews(reviewsRes.data || []);
     };
 
-    if (loading) return <div className="loading-state">Loading Profile...</div>;
+    if (loading) return <div style={{ padding: '80px', textAlign: 'center' }}><HashLoader text="" /></div>;
     if (error) return (
-        <div className="profile-dashboard" style={{ textAlign: 'center', padding: '100px 20px' }}>
-            <h2>Access Restricted</h2>
-            <p style={{ color: '#64748b', marginBottom: '24px' }}>{error}</p>
-            <button className="save-btn" onClick={() => router.back()}>Go Back</button>
+        <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+            <h2 className="text-display-xl">Access Restricted</h2>
+            <p className="text-body-md" style={{ color: 'var(--color-text-main)', marginBottom: '24px' }}>{error}</p>
+            <Button variant="primary" onClick={() => router.back()}>Go Back</Button>
         </div>
     );
 
     return (
-        <div className="profile-dashboard">
-            <button className="lm-back" onClick={() => router.back()} style={{ marginBottom: '24px', position: 'static' }}>
-                <FiChevronLeft /> Back
-            </button>
+        <div className="wh-dashboard" style={{ padding: 'var(--space-xl) 0' }}>
+            <PageContainer size="lg">
+                <header style={{ marginBottom: 'var(--space-xl)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                    <Button variant="ghost" onClick={() => router.back()} style={{ padding: '8px' }}>
+                        <FiChevronLeft size={20} />
+                    </Button>
+                    <h1 className="text-display-xl" style={{ fontSize: '32px' }}>Profile</h1>
+                </header>
 
-            <div className="profile-header" style={{ alignItems: 'center' }}>
-                <div className="avatar-section">
-                    <div className="avatar-circle">
-                        {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : <FiUser />}
-                    </div>
-                    <div className="avatar-titles">
-                        <h3>{profile.first_name} {profile.last_name} {profile.is_verified && <FiCheckCircle color="#3b82f6" style={{ marginLeft: '4px' }} />}</h3>
-                        {role === 'worker' ? (
-                            <p className="headline-text">{profile.headline || 'Freelancer'}</p>
-                        ) : (
-                            <p className="headline-text">{company?.company_name || 'Individual Hirer'}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr minmax(0, 2fr) 1fr', gap: 'var(--space-xl)' }}>
+                    {/* ── Side Info ── */}
+                    <aside style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                        <Card variant="elevated" padding="xl" style={{ textAlign: 'center' }}>
+                            <div style={{ 
+                                width: '120px', height: '120px', borderRadius: 'var(--radius-pill)', 
+                                backgroundColor: 'var(--color-border-light)', overflow: 'hidden',
+                                margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '48px', color: 'var(--color-primary)', border: '4px solid white', boxShadow: 'var(--shadow-md)'
+                            }}>
+                                {profile.avatar_url ? <img src={profile.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FiUser />}
+                            </div>
+                            <h2 className="text-headline-lg" style={{ fontSize: '24px', marginBottom: '4px' }}>
+                                {profile.first_name} {profile.last_name}
+                            </h2>
+                            <p className="text-label-sm" style={{ color: 'var(--color-primary)', fontWeight: '800', marginBottom: '12px' }}>
+                                {role === 'worker' ? (profile.headline || 'Freelancer') : (company?.company_name || 'Individual Hirer')}
+                            </p>
+                            <Badge variant="active">Verified Pro</Badge>
+                        </Card>
+
+                        <Card variant="elevated" padding="lg">
+                            <h3 className="text-title-md" style={{ marginBottom: '12px' }}>Stats</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span className="text-label-sm">Rating</span>
+                                    <span style={{ fontWeight: '700', color: 'var(--color-text-main)' }}>{profile.average_rating || 0} / 5</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span className="text-label-sm">Tasks</span>
+                                    <span style={{ fontWeight: '700', color: 'var(--color-text-main)' }}>{role === 'worker' ? (profile.total_jobs_completed || 0) : stats.jobs}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span className="text-label-sm">Join Year</span>
+                                    <span style={{ fontWeight: '700', color: 'var(--color-text-main)' }}>{new Date(profile.created_at).getFullYear()}</span>
+                                </div>
+                            </div>
+                        </Card>
+                    </aside>
+
+                    {/* ── Main Content ── */}
+                    <main style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                        <Card variant="elevated" padding="xl">
+                            <h3 className="text-headline-lg" style={{ marginBottom: '12px' }}>About</h3>
+                            <p className="text-body-md" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                                {role === 'hirer' ? (company?.company_description || 'No description provided.') : (profile.bio || 'No bio provided.')}
+                            </p>
+                        </Card>
+
+                        {role === 'worker' && skills.length > 0 && (
+                            <Card variant="elevated" padding="xl">
+                                <h3 className="text-headline-lg" style={{ marginBottom: '16px' }}>Expertise</h3>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {skills.map((s, i) => <Badge key={i} variant="active">{s}</Badge>)}
+                                </div>
+                            </Card>
                         )}
-                        <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>
-                            <FiMapPin style={{ marginRight: '4px' }} /> {profile.country || 'Global'}
-                        </p>
-                    </div>
-                </div>
 
-                <div className="completeness-indicator" style={{ minWidth: '200px' }}>
-                    <div className="comp-text">
-                        <span>Rating</span>
-                        <span>{profile.average_rating || 0} / 5</span>
-                    </div>
-                    <div className="comp-bar-bg">
-                        <div className="comp-bar-fill" style={{ width: `${(profile.average_rating || 0) * 20}%` }}></div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="profile-grid">
-                <div className="profile-col-main">
-                    {role === 'hirer' ? (
-                        <>
-                            <div className="profile-card">
-                                <div className="card-header"><h2>Company Description</h2></div>
-                                <div className="card-body">
-                                    <p className="bio-text" style={{ color: company?.company_description ? '#334155' : '#94a3b8' }}>
-                                        {company?.company_description || 'No description provided.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="profile-card">
-                                <div className="card-header"><h2>Company Overview</h2></div>
-                                <div className="card-body">
-                                    <div className="info-grid">
-                                        <div className="info-item">
-                                            <label>Industry</label>
-                                            <p>{company?.industry || 'N/A'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Company Size</label>
-                                            <p>{company?.company_size || 'N/A'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Founded</label>
-                                            <p>{company?.founded_year || 'N/A'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Website</label>
-                                            <p>
-                                                {company?.website ? (
-                                                    <a href={company.website} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        Visit <FiExternalLink size={12} />
-                                                    </a>
-                                                ) : 'N/A'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="profile-card">
-                                <div className="card-header"><h2>About Me</h2></div>
-                                <div className="card-body">
-                                    <p className="bio-text" style={{ color: profile.bio ? '#334155' : '#94a3b8' }}>
-                                        {profile.bio || 'This worker hasn\'t provided a bio yet.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="profile-card">
-                                <div className="card-header"><h2>Skills</h2></div>
-                                <div className="card-body">
-                                    {skills.length > 0 ? (
-                                        <div className="skills-container">
-                                            {skills.map((s, i) => <span key={i} className="skill-tag">{s}</span>)}
-                                        </div>
-                                    ) : <p className="empty-text">No skills listed.</p>}
-                                </div>
-                            </div>
-
-                            <div className="profile-card">
-                                <div className="card-header"><h2>Education</h2></div>
-                                <div className="card-body">
-                                    {education.length > 0 ? (
-                                        education.map(edu => (
-                                            <div key={edu.id} className="list-item">
-                                                <div className="li-header">
-                                                    <h4 className="li-title">{edu.degree} in {edu.field_of_study}</h4>
-                                                    <p className="li-subtitle">{edu.start_year} - {edu.end_year || 'Present'}</p>
-                                                </div>
-                                                <p className="li-subtitle" style={{ fontWeight: '500', color: '#475569' }}>{edu.institution}</p>
-                                            </div>
-                                        ))
-                                    ) : <p className="empty-text">No education history added.</p>}
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    <div className="profile-card">
-                        <div className="card-header"><h2>Recent Reviews</h2></div>
-                        <div className="card-body">
+                        <Card variant="elevated" padding="xl">
+                            <h3 className="text-headline-lg" style={{ marginBottom: '16px' }}>Feedback</h3>
                             {reviews.length > 0 ? (
-                                reviews.map(rev => (
-                                    <div key={rev.id} className="list-item" style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
-                                        <div className="li-header">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', overflow: 'hidden' }}>
-                                                    {rev.reviewer?.avatar_url ? <img src={rev.reviewer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FiUser style={{ margin: '8px' }} />}
-                                                </div>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{rev.reviewer?.first_name} {rev.reviewer?.last_name}</p>
-                                                    <div style={{ display: 'flex', color: '#f59e0b', fontSize: '12px' }}>
-                                                        {[...Array(5)].map((_, i) => <FiStar key={i} fill={i < rev.rating ? "#f59e0b" : "none"} />)}
-                                                    </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                                    {reviews.map(rev => (
+                                        <div key={rev.id} style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                <span className="text-title-md" style={{ fontSize: '15px' }}>{rev.reviewer?.first_name}</span>
+                                                <div style={{ display: 'flex', color: 'var(--color-primary)', fontSize: '14px' }}>
+                                                    {[...Array(5)].map((_, i) => <FiStar key={i} fill={i < rev.rating ? "currentColor" : "none"} />)}
                                                 </div>
                                             </div>
-                                            <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>{new Date(rev.created_at).toLocaleDateString()}</p>
+                                            <p className="text-body-md" style={{ fontStyle: 'italic', opacity: 0.8 }}>"{rev.comment}"</p>
                                         </div>
-                                        <p style={{ fontSize: '14px', color: '#475569', margin: '10px 0 0 0', lineHeight: '1.5' }}>"{rev.comment}"</p>
-                                    </div>
-                                ))
-                            ) : <p className="empty-text">No reviews yet.</p>}
-                        </div>
-                    </div>
-                </div>
+                                    ))}
+                                </div>
+                            ) : <p className="text-label-sm">No reviews yet.</p>}
+                        </Card>
+                    </main>
 
-                <div className="profile-col-side">
-                    <div className="profile-card stats-card">
-                        <div className="card-header"><h2>Professional Stats</h2></div>
-                        <div className="card-body" style={{ padding: 0 }}>
-                            {role === 'worker' ? (
-                                <>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Jobs Completed</span>
-                                        <span className="stat-value">{profile.total_jobs_completed || 0}</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Total Earnings</span>
-                                        <span className="stat-value">₹{profile.total_earnings?.toLocaleString() || 0}</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Member Since</span>
-                                        <span className="stat-value">{new Date(profile.created_at).getFullYear()}</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Jobs Posted</span>
-                                        <span className="stat-value">{stats.jobs}</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Active Contracts</span>
-                                        <span className="stat-value">{stats.contracts}</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <span className="stat-label">Member Since</span>
-                                        <span className="stat-value">{new Date(profile.created_at).getFullYear()}</span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {role === 'worker' && availability && (
-                        <div className="profile-card">
-                            <div className="card-header"><h2>Availability</h2></div>
-                            <div className="card-body">
-                                <div className="status-badge active" style={{ backgroundColor: availability.is_available ? '#dcfce7' : '#fee2e2', color: availability.is_available ? '#166534' : '#991b1b', marginBottom: '16px' }}>
-                                    {availability.is_available ? 'Available Now' : 'Not Available'}
-                                </div>
-                                <div className="info-item" style={{ marginBottom: '16px' }}>
-                                    <label>Preferred Role</label>
-                                    <p style={{ textTransform: 'capitalize' }}>{availability.preferred_role_type || 'Any'}</p>
-                                </div>
-                                <div className="info-item">
-                                    <label>Available From</label>
-                                    <p>{availability.available_from ? new Date(availability.available_from).toLocaleDateString() : 'N/A'}</p>
-                                </div>
+                    {/* ── Contact & Availability ── */}
+                    <aside style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                        <Card variant="elevated" padding="lg">
+                            <h3 className="text-title-md" style={{ marginBottom: '16px' }}>Location</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-main)' }}>
+                                <FiMapPin />
+                                <span className="text-body-md">
+                                    {profile.city || profile.country || 'Global'}
+                                </span>
                             </div>
-                        </div>
-                    )}
+                        </Card>
+
+                        {role === 'worker' && availability && (
+                            <Card variant="elevated" padding="lg">
+                                <h3 className="text-title-md" style={{ marginBottom: '16px' }}>Availability</h3>
+                                <div style={{ 
+                                    padding: '12px', borderRadius: 'var(--radius-md)', 
+                                    backgroundColor: availability.is_available ? 'var(--color-success-light)' : 'var(--color-border-light)',
+                                    color: availability.is_available ? 'var(--color-success)' : 'var(--color-text-main)',
+                                    textAlign: 'center', fontWeight: '700', marginBottom: '12px'
+                                }}>
+                                    {availability.is_available ? 'Ready to Work' : 'Currently Busy'}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <span className="text-label-sm">Role Type: <span style={{ color: 'var(--color-text-main)', fontWeight: '700' }}>{availability.preferred_role_type || 'Any'}</span></span>
+                                </div>
+                            </Card>
+                        )}
+                    </aside>
                 </div>
-            </div>
+            </PageContainer>
         </div>
     );
 }
+    
 
 export default function ProfileViewPage() {
     return (
-        <Suspense fallback={<div className="loading-state">Loading Profile...</div>}>
+        <Suspense fallback={<HashLoader text="" />}>
             <ProfileContent />
         </Suspense>
     );

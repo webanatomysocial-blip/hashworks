@@ -3,16 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import ConfirmModal from '@/Components/ConfirmModal.jsx';
 import {
-    FiBriefcase, FiUsers, FiCreditCard, FiChevronRight,
-    FiPlus, FiEdit2, FiStar, FiBookmark, FiActivity,
-    FiFileText, FiMessageCircle, FiMoreVertical, FiXCircle
+    FiBriefcase, FiUsers, FiChevronRight,
+    FiFileText, FiActivity
 } from 'react-icons/fi';
-import { BsFillPersonFill } from 'react-icons/bs';
 import '@/css/hirer.css';
-import ChatModal from '@/Components/ChatModal.jsx';
 import { useRouter } from 'next/navigation';
+import { useStats } from '@/Components/providers/StatsProvider';
+import { PageContainer } from "@/Components/layouts/PageContainer";
+import { Card } from "@/Components/ui/Card";
+import HashLoader from "@/Components/common/HashLoader.jsx";
+import ActiveTaskBanner from '@/Components/common/ActiveTaskBanner';
+import HirerPostingsList from '@/Components/hirer/HirerPostingsList';
+import LatestChatsList from '@/Components/worker/LatestChatsList';
 
 /* helper: full name from profile */
 function fullName(p) {
@@ -28,39 +31,19 @@ function initials(p) {
     return (f + l).toUpperCase() || '?';
 }
 
-/* helper: time ago */
-function timeAgo(dateStr) {
-    const diff = Math.floor((Date.now() - new Date(dateStr)) / 60000);
-    if (diff < 60) return `${diff}m ago`;
-    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-    return `${Math.floor(diff / 1440)}d ago`;
-}
-
 export default function HirerDashboard() {
+    const { stats } = useStats();
     const [profile, setProfile] = useState(null);
     const [userId, setUserId] = useState(null);
     const [jobs, setJobs] = useState([]);
     const [applications, setApplications] = useState([]);
     const [contracts, setContracts] = useState([]);
     const [savedTalent, setSavedTalent] = useState([]);
-    const [reviews, setReviews] = useState([]);
-    const [balance, setBalance] = useState(0);
+    const [latestChats, setLatestChats] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeToggle, setActiveToggle] = useState("postTask");
 
-    /* post job modal */
-    const [jobToEdit, setJobToEdit] = useState(null);
-
-    /* delete modal */
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [jobToDelete, setJobToDelete] = useState(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
     const router = useRouter();
-
-    /* menu state */
-    const [activeMenuId, setActiveMenuId] = useState(null);
-
-    /* chat modal */
-    const [chatConfig, setChatConfig] = useState({ isOpen: false, contractId: null, otherUserName: '' });
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -77,27 +60,28 @@ export default function HirerDashboard() {
             /* jobs */
             const { data: jobsData } = await supabase
                 .from('jobs')
-                .select('*')
+                .select('*, application_count:applications(count)')
                 .eq('hirer_id', user.id)
                 .order('created_at', { ascending: false });
-            const allJobs = jobsData || [];
-            setJobs(allJobs);
+            
+            // Clean application_count from the join
+            const cleanedJobs = (jobsData || []).map(j => ({
+                ...j,
+                application_count: j.application_count?.[0]?.count || 0
+            }));
+            setJobs(cleanedJobs);
 
-            /* applications for hirer's jobs */
-            if (allJobs.length > 0) {
-                const jobIds = allJobs.map(j => j.id);
-                const { data: appsData } = await supabase
-                    .from('applications')
-                    .select('*, worker:profiles!applications_worker_id_fkey(id, first_name, last_name, username, avatar_url), jobs(title)')
-                    .in('job_id', jobIds)
-                    .order('created_at', { ascending: false });
-                setApplications(appsData || []);
-            }
+            /* applications for stats */
+            const { data: appsData } = await supabase
+                .from('applications')
+                .select('id, status')
+                .in('job_id', cleanedJobs.map(j => j.id));
+            setApplications(appsData || []);
 
-            /* contracts */
+            /* contracts - Most recent active one */
             const { data: conData } = await supabase
                 .from('contracts')
-                .select('*, jobs(title, urgency), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url)')
+                .select('*, jobs(title, urgency), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url, average_rating)')
                 .eq('hirer_id', user.id)
                 .eq('status', 'active')
                 .order('created_at', { ascending: false });
@@ -106,484 +90,185 @@ export default function HirerDashboard() {
             /* saved talent */
             const { data: talentData } = await supabase
                 .from('saved_talent')
-                .select('*, worker:profiles!saved_talent_worker_id_fkey(id, first_name, last_name, username, avatar_url, bio)')
+                .select('*, worker:profiles!saved_talent_worker_id_fkey(id, first_name, last_name, username, avatar_url, bio, average_rating)')
                 .eq('hirer_id', user.id)
                 .order('created_at', { ascending: false })
-                .limit(4);
+                .limit(8);
             setSavedTalent(talentData || []);
 
-            /* reviews about the hirer */
-            const { data: revData } = await supabase
-                .from('reviews')
-                .select('*, reviewer:profiles!reviews_reviewer_id_fkey(id, first_name, last_name, username, avatar_url)')
-                .eq('reviewee_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(3);
-            setReviews(revData || []);
+            /* Latest chats */
+            const { data: chatsData } = await supabase
+                .from('messages')
+                .select(`id, content, created_at, is_read,
+                  contract:contracts!messages_contract_id_fkey(
+                    id,
+                    hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
+                    worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
+                  )`)
+                .order('created_at', { ascending: false }).limit(20);
 
-            /* balance from transactions */
-            const { data: txData } = await supabase
-                .from('transactions')
-                .select('amount, type')
-                .eq('user_id', user.id)
-                .eq('status', 'completed');
-            if (txData) {
-                const bal = txData.reduce((sum, t) => {
-                    if (t.type === 'deposit') return sum + Number(t.amount);
-                    if (t.type === 'payment' || t.type === 'withdrawal' || t.type === 'platform_fee') return sum - Number(t.amount);
-                    return sum;
-                }, 0);
-                setBalance(bal);
+            const seen = new Set();
+            const deduped = [];
+            for (const msg of (chatsData || [])) {
+                const cid = msg.contract?.id;
+                if (cid && !seen.has(cid)) {
+                    seen.add(cid);
+                    const isWorker = msg.contract?.worker?.id === user.id;
+                    deduped.push({ ...msg, otherPerson: isWorker ? msg.contract?.hirer : msg.contract?.worker });
+                    if (deduped.length >= 5) break;
+                }
             }
+            setLatestChats(deduped);
 
         } catch (err) {
             console.error('Dashboard fetch error:', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [router]);
 
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
 
-    /* delete job */
-    const handleDelete = async () => {
-        if (!jobToDelete) return;
-        setDeleteLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('jobs').delete().eq('id', jobToDelete).eq('hirer_id', userId).select();
-            if (error) throw error;
-            if (!data?.length) throw new Error('Could not delete: job not found or not owned by you.');
-            setJobs(prev => prev.filter(j => j.id !== jobToDelete));
-            setDeleteModalOpen(false);
-            setJobToDelete(null);
-        } catch (err) {
-            alert(err.message || 'Failed to delete job.');
-        } finally {
-            setDeleteLoading(false);
-        }
-    };
+    if (loading) return <HashLoader text="" />;
 
-    /* navigate to edit page */
-    const handleEdit = (job) => {
-        router.push(`/hirer/postings/edit/?id=${job.id}`);
-    };
-
-    const handleCancelContract = async (contractId, jobId) => {
-        if (!confirm('Are you sure you want to cancel this contract?')) return;
-        try {
-            const { error: contractErr } = await supabase
-                .from('contracts')
-                .update({ status: 'cancelled' })
-                .eq('id', contractId);
-            if (contractErr) throw contractErr;
-
-            // Optional: Set job back to active if it was in_progress
-            await supabase
-                .from('jobs')
-                .update({ status: 'active' })
-                .eq('id', jobId);
-
-            setContracts(prev => prev.filter(c => c.id !== contractId));
-            setActiveMenuId(null);
-        } catch (err) {
-            console.error('Error cancelling contract:', err);
-            alert('Failed to cancel contract: ' + err.message);
-        }
-    };
-
-    if (loading) return <div className="loading-state">Loading …</div>;
-
-    /* derived */
-    const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'draft');
-    const totalApps = applications.length;
-    const pendingApps = applications.filter(a => a.status === 'pending');
+    const mostRecentContract = contracts[0];
+    const pendingApps = applications.filter(a => a.status === 'pending').length;
 
     return (
-        <div className="hirer-dashboard">
-
-            {/* ── Greeting ── */}
-            <div className="hd-greeting">
-                <p className="hd-greeting-sub">Recruiter Dashboard</p>
-                <h1 className="hd-greeting-name">
-                    Hello, {profile?.first_name || 'there'}
-                </h1>
-            </div>
-
-            {/* ── Balance Card ── */}
-            {/* <div className="hd-balance-card">
-                <div className="hd-balance-top">
-                    <span className="hd-balance-label">Balance</span>
-                    <FiCreditCard className="hd-balance-icon" />
-                </div>
-                <div className="hd-balance-amount">
-                    ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </div>
-                <div className="hd-balance-actions">
-                    <button className="hd-balance-btn primary">Add Funds</button>
-                    <button className="hd-balance-btn outline">View Logs</button>
-                </div>
-            </div> */}
-
-            {/* ── Stats Row ── */}
-            <div className="hd-stats-row">
-                <div className="hd-stat-card">
-                    <div className="hd-stat-icon blue">
-                        <FiBriefcase />
-                    </div>
-                    <div>
-                        <div className="hd-stat-value">{activeJobs.length}</div>
-                        <div className="hd-stat-label">Active Postings</div>
-                    </div>
-                </div>
-                <div className="hd-stat-card">
-                    <div className="hd-stat-icon purple">
-                        <FiUsers />
-                    </div>
-                    <div>
-                        <div className="hd-stat-value">{totalApps}</div>
-                        <div className="hd-stat-label">Total Applications</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Posted Jobs ── */}
-            <div className="hd-section">
-                <div className="hd-section-header">
-                    <h2 className="hd-section-title">
-                        <FiFileText className="hd-section-title-icon" />
-                        Posted Jobs
-                    </h2>
-                    <Link href="/hirer/postings" className="hd-section-link">
-                        Manage All
-                    </Link>
+        <div className="wh-dashboard">
+            <PageContainer>
+                {/* Role Toggle */}
+                <div className="hw-role-toggle" style={{ marginTop: '20px' }}>
+                    <button 
+                        className={`hw-toggle-btn ${activeToggle === 'findWork' ? 'hw-toggle-btn--active' : ''}`} 
+                        onClick={() => { setActiveToggle("findWork"); router.push('/worker'); }}
+                    >
+                        Find Work
+                    </button>
+                    <button 
+                        className={`hw-toggle-btn ${activeToggle === 'postTask' ? 'hw-toggle-btn--active' : ''}`} 
+                        onClick={() => setActiveToggle("postTask")}
+                    >
+                        Post Task
+                    </button>
                 </div>
 
-                {activeJobs.length === 0 ? (
-                    <div className="hd-empty">No active jobs yet. Post your first job!</div>
-                ) : (
-                    <div className="hd-jobs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
-                        {activeJobs.slice(0, 4).map(job => {
-                            const appCount = applications.filter(a => a.job_id === job.id).length;
-                            return (
-                                <div key={job.id} className="hd-job-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', margin: 0 }}>
-                                    <div>
-                                        <div className="hd-job-card-top">
-                                            <h3 className="hd-job-title">{job.title}</h3>
-                                            <span className={`hd-status-badge ${job.status}`}>
-                                                {job.status.toUpperCase()}
-                                            </span>
-                                        </div>
-                                        <p className="hd-job-meta">
-                                            <strong>{appCount} Application{appCount !== 1 ? 's' : ''} Received</strong>
-                                            {' · Posted '}
-                                            {new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </p>
-                                    </div>
-                                    <div className="hd-job-card-actions" style={{ marginTop: 'auto' }}>
-                                        <Link href={`/hirer/postings/edit?id=${job.id}`} className="hd-job-action-btn">
-                                            <FiEdit2 size={13} /> Edit
-                                        </Link>
-                                        <Link href={`/hirer/postings/review/?id=${job.id}`} className="hd-job-action-btn review">
-                                            Review
-                                        </Link>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                {/* Greeting Section */}
+                <div className="hw-mb-32" style={{ padding: '0 16px' }}>
+                    <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>RECRUITER HUB</p>
+                    <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
+                        Hello, {profile?.first_name || 'Hirer'}
+                    </h1>
+                </div>
 
-                {activeJobs.length > 4 && (
-                    <div style={{ textAlign: 'center', marginTop: 8 }}>
-                        <Link href="/hirer/postings" className="hd-section-link" style={{ display: 'inline-block', padding: '8px 16px' }}>
-                            View all {activeJobs.length} jobs <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
-                        </Link>
-                    </div>
-                )}
-            </div>
-
-            {/* ── New Applications ── */}
-            <div className="hd-section">
-                <div className="hd-section-header">
-                    <h2 className="hd-section-title">
-                        <FiUsers className="hd-section-title-icon" />
-                        New Applications
-                    </h2>
-                    {pendingApps.length > 4 && (
-                        <Link href="/hirer/postings" className="hd-section-link">
-                            View All <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
-                        </Link>
+                {/* Most Recent Active Task (Primary Card) */}
+                <div className="hw-section" style={{ padding: '0 16px' }}>
+                    {mostRecentContract ? (
+                        <ActiveTaskBanner 
+                            contract={mostRecentContract} 
+                            role="hirer"
+                            onClick={() => router.push(`/messages?contract=${mostRecentContract.id}`)}
+                        />
+                    ) : (
+                        <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center">
+                            <div className="text-label-sm">Get Things Done</div>
+                            <h1 className="text-headline-lg">No Ongoing Tasks</h1>
+                            <p className="text-body-md hw-mt-4">
+                                Post a new task and find top-rated workers in minutes.
+                            </p>
+                            <button 
+                                className="hw-btn hw-btn-secondary hw-mt-4" 
+                                onClick={() => router.push('/hirer/postings/create')}
+                            >
+                                Post a Task
+                            </button>
+                        </Card>
                     )}
                 </div>
 
-                {pendingApps.length === 0 ? (
-                    <div className="hd-empty">No new applications yet.</div>
-                ) : (
-                    pendingApps.slice(0, 4).map(app => {
-                        const w = app.worker;
-                        return (
-                            <Link key={app.id} href={`/hirer/applications/review/?id=${app.id}`} className="hd-app-item" style={{ textDecoration: 'none', color: 'inherit' }}>
-                                <div className="hd-app-avatar">
-                                    {w?.avatar_url
-                                        ? <img src={w.avatar_url} alt={fullName(w)} />
-                                        : initials(w)}
-                                </div>
-                                <div className="hd-app-info">
-                                    <p className="hd-app-name">{fullName(w)}</p>
-                                    <p className="hd-app-sub">
-                                        Applied for {app.jobs?.title || 'a job'} · {timeAgo(app.created_at)}
-                                    </p>
-                                </div>
-                                <FiChevronRight className="hd-app-chevron" />
-                            </Link>
-                        );
-                    })
-                )}
-            </div>
-
-            {/* ── Ongoing Gigs ── */}
-            <div className="hd-section">
-                <div className="hd-section-header">
-                    <h2 className="hd-section-title">
-                        <FiActivity className="hd-section-title-icon" />
-                        Ongoing Gigs
-                    </h2>
+                {/* Active Postings Summary */}
+                <div className="hw-section">
+                    <HirerPostingsList 
+                        jobs={jobs} 
+                        onJobClick={(id) => router.push(`/hirer/postings/view?id=${id}`)}
+                        onAddClick={() => router.push('/hirer/postings/create')}
+                    />
                 </div>
 
-                {contracts.length === 0 ? (
-                    <div className="hd-empty">No active contracts yet.</div>
-                ) : (
-                    <>
-                        {contracts.slice(0, 4).map(contract => {
-                            const w = contract.worker;
-                            const progress = contract.progress_percentage ?? 0;
-                            const urgency = contract.jobs?.urgency || 'flexible';
-                            const urgencyLabel = urgency === 'immediate' ? 'URGENT'
-                                : urgency === 'high' ? 'HIGH PRIORITY'
-                                    : 'FLEXIBLE';
-
-                            /* days until end_date */
-                            let dueText = urgencyLabel;
-                            if (contract.end_date) {
-                                const daysLeft = Math.ceil((new Date(contract.end_date) - Date.now()) / 86400000);
-                                if (daysLeft > 0) dueText = `DUE IN ${daysLeft} DAYS`;
-                                else if (daysLeft === 0) dueText = 'DUE TODAY';
-                                else dueText = 'OVERDUE';
-                            }
-
-                            return (
-                                <div key={contract.id} className="hd-gig-card">
-                                    <div className="hd-gig-top" style={{ position: 'relative' }}>
-                                        <h3 className="hd-gig-title">{contract.jobs?.title || 'Untitled Gig'}</h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span className={`hd-urgency-badge ${urgency}`}>{dueText}</span>
-                                            <button 
-                                                className="hd-menu-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setActiveMenuId(activeMenuId === contract.id ? null : contract.id);
-                                                }}
-                                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-                                            >
-                                                <FiMoreVertical size={18} />
-                                            </button>
-
-                                            {activeMenuId === contract.id && (
-                                                <div 
-                                                    className="hd-dropdown-menu"
-                                                    style={{ 
-                                                        position: 'absolute', 
-                                                        top: '100%', 
-                                                        right: '0', 
-                                                        background: '#fff', 
-                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06)', 
-                                                        borderRadius: '8px', 
-                                                        padding: '8px', 
-                                                        zIndex: 10,
-                                                        minWidth: '150px',
-                                                        border: '1px solid #f1f5f9'
-                                                    }}
-                                                >
-                                                    <button 
-                                                        onClick={() => handleCancelContract(contract.id, contract.job_id)}
-                                                        style={{ 
-                                                            width: '100%', 
-                                                            textAlign: 'left', 
-                                                            padding: '8px 12px', 
-                                                            background: 'none', 
-                                                            border: 'none', 
-                                                            color: '#ef4444', 
-                                                            display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            gap: '8px', 
-                                                            fontSize: '13px', 
-                                                            fontWeight: '500', 
-                                                            cursor: 'pointer',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                        onMouseEnter={(e) => e.target.style.background = '#fef2f2'}
-                                                        onMouseLeave={(e) => e.target.style.background = 'none'}
-                                                    >
-                                                        <FiXCircle size={14} /> Cancel Contract
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="hd-gig-worker">
-                                        Assigned To: <strong>{fullName(w)}</strong>
-                                    </p>
-                                    <div className="hd-progress-label">
-                                        <span>Task Progress</span>
-                                        <span>{progress}%</span>
-                                    </div>
-                                    <div className="hd-progress-bar">
-                                        <div className="hd-progress-fill" style={{ width: `${progress}%` }} />
-                                    </div>
-                                    <div className="hd-gig-footer" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', marginTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-                                        <button 
-                                            className="hd-app-action-btn"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setChatConfig({
-                                                    isOpen: true,
-                                                    contractId: contract.id,
-                                                    otherUserName: fullName(w)
-                                                });
-                                            }}
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '6px', 
-                                                fontSize: '12px', 
-                                                background: '#2563eb', 
-                                                color: '#fff',
-                                                padding: '8px 12px',
-                                                borderRadius: '8px',
-                                                border: 'none',
-                                                fontWeight: '600',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <FiMessageCircle size={14} /> Tap to Chat
-                                        </button>
-                                    </div>
+                {/* Stats Grid */}
+                <div className="hw-section" style={{ padding: '0 16px' }}>
+                    <div className="hw-grid-2">
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/postings')} style={{ borderRadius: '20px' }}>
+                            <div className="hw-flex hw-justify-between hw-items-center">
+                                <div>
+                                    <span className="text-label-sm hw-mb-4 hw-display-block" style={{ color: '#64748B' }}>Active Postings</span>
+                                    <div className="text-display-xl hw-text-32" style={{ fontWeight: 800 }}>{jobs.length}</div>
                                 </div>
-                            );
-                        })}
-
-                        {contracts.length > 4 && (
-                            <div style={{ textAlign: 'center', marginTop: 8 }}>
-                                <Link href="/hirer/postings" className="hd-section-link" style={{ display: 'inline-block', padding: '8px 16px' }}>
-                                    View all {contracts.length} gigs <FiChevronRight size={14} style={{ verticalAlign: 'middle' }} />
-                                </Link>
+                                <div className="hw-icon-box-sm hw-icon-box-primary">
+                                    <FiBriefcase size={20} />
+                                </div>
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {/* ── Saved Talent ── */}
-            {/* <div className="hd-section">
-                <div className="hd-section-header">
-                    <h2 className="hd-section-title">
-                        <FiBookmark className="hd-section-title-icon" />
-                        Saved Talent
-                    </h2>
-                    {savedTalent.length > 0 && (
-                        <button className="hd-section-link">
-                            View All <FiChevronRight size={14} />
-                        </button>
-                    )}
+                        </Card>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/applications')} style={{ borderRadius: '20px' }}>
+                            <div className="hw-flex hw-justify-between hw-items-center">
+                                <div>
+                                    <span className="text-label-sm hw-mb-4 hw-display-block" style={{ color: '#64748B' }}>Pending Review</span>
+                                    <div className="text-display-xl hw-text-32" style={{ fontWeight: 800 }}>{pendingApps}</div>
+                                </div>
+                                <div className="hw-icon-box-sm hw-icon-box-success" style={{ background: '#c7f284', color: '#0F172A' }}>
+                                    <FiUsers size={20} />
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
 
-                {savedTalent.length === 0 ? (
-                    <div className="hd-empty">No saved talent yet. Save workers you like!</div>
-                ) : (
-                    <div className="hd-talent-grid">
-                        {savedTalent.map(item => {
-                            const w = item.worker;
-                            return (
-                                <div key={item.id} className="hd-talent-card">
-                                    <div className="hd-talent-avatar">
-                                        {w?.avatar_url
-                                            ? <img src={w.avatar_url} alt={fullName(w)} />
-                                            : initials(w)}
+                {/* Saved Talent */}
+                {savedTalent.length > 0 && (
+                    <div className="hw-section" style={{ padding: '0 16px' }}>
+                        <div className="hw-flex hw-justify-between hw-items-center hw-mb-16">
+                            <h2 className="text-headline-lg" style={{ fontWeight: 800 }}>Top Rated Talent</h2>
+                            <Link href="/hirer/talent" className="text-label-sm" style={{ color: 'var(--hw-primary)', fontWeight: 800 }}>View All</Link>
+                        </div>
+                        <div className="hw-urgent-scroll">
+                            {savedTalent.map(talent => (
+                                <Card 
+                                    key={talent.id} 
+                                    variant="border" 
+                                    padding="md" 
+                                    className="hw-card-interactive"
+                                    onClick={() => router.push(`/worker/profile/view?id=${talent.worker.id}`)}
+                                    style={{ minWidth: '180px', textAlign: 'center', borderRadius: '24px' }}
+                                >
+                                    <div className="wh-avatar-placeholder" style={{ width: '70px', height: '70px', margin: '0 auto 12px', borderRadius: '50%', border: '4px solid #f8fafc', boxShadow: 'var(--hw-shadow-low)' }}>
+                                        {talent.worker.avatar_url ? (
+                                             <img src={talent.worker.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                        ) : (
+                                            (talent.worker.first_name?.[0] || 'W').toUpperCase()
+                                        )}
                                     </div>
-                                    <p className="hd-talent-name">{fullName(w)}</p>
-                                    <p className="hd-talent-role">
-                                        {w?.bio ? w.bio.split(' ').slice(0, 3).join(' ') : 'Freelancer'}
+                                    <h4 className="text-title-md" style={{ fontSize: '15px', fontWeight: 800 }}>{talent.worker.first_name || 'Talent'}</h4>
+                                    <p className="text-label-sm" style={{ color: '#1C4DFF', fontSize: '11px', fontWeight: 900, marginTop: '4px' }}>
+                                        ★ {Number(talent.worker.average_rating || 5.0).toFixed(1)}
                                     </p>
-                                    <button className="hd-talent-btn">
-                                        <BsFillPersonFill style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                                        View Profile
-                                    </button>
-                                </div>
-                            );
-                        })}
+                                </Card>
+                            ))}
+                        </div>
                     </div>
                 )}
-            </div> */}
 
-            {/* ── Recent Feedback ── */}
-            {/* <div className="hd-section">
-                <div className="hd-section-header">
-                    <h2 className="hd-section-title">
-                        <FiStar className="hd-section-title-icon" />
-                        Recent Feedback
-                    </h2>
-                    {reviews.length > 0 && (
-                        <button className="hd-section-link">
-                            Read More <FiChevronRight size={14} />
-                        </button>
-                    )}
+                {/* Latest Chats */}
+                <div className="hw-section" style={{ padding: '0 16px' }}>
+                    <LatestChatsList
+                        chats={latestChats}
+                        onViewAll={() => router.push('/messages')}
+                        onChatClick={(contractId) => router.push(`/messages?contract=${contractId}`)}
+                    />
                 </div>
 
-                {reviews.length === 0 ? (
-                    <div className="hd-empty">No feedback received yet.</div>
-                ) : (
-                    reviews.map(rev => {
-                        const r = rev.reviewer;
-                        return (
-                            <div key={rev.id} className="hd-feedback-card">
-                                <div className="hd-feedback-top">
-                                    <span className="hd-feedback-reviewer">{fullName(r)}</span>
-                                    <div className="hd-stars">
-                                        {Array.from({ length: 5 }).map((_, i) => (
-                                            <FiStar key={i} style={{ fill: i < rev.rating ? '#f59e0b' : 'none', color: i < rev.rating ? '#f59e0b' : '#d1d5db' }} />
-                                        ))}
-                                    </div>
-                                </div>
-                                <p className="hd-feedback-comment">
-                                    &ldquo;{rev.comment || 'Great collaboration!'}&rdquo;
-                                </p>
-                            </div>
-                        );
-                    })
-                )}
-            </div> */}
-
-            {/* Delete Confirm Modal */}
-            <ConfirmModal
-                isOpen={deleteModalOpen}
-                onClose={() => setDeleteModalOpen(false)}
-                onConfirm={handleDelete}
-                title="Delete Job Listing"
-                message="Are you sure you want to delete this job? This will remove all associated applications."
-                confirmText="Delete Job"
-                loading={deleteLoading}
-            />
-
-            <ChatModal
-                isOpen={chatConfig.isOpen}
-                onClose={() => setChatConfig({ ...chatConfig, isOpen: false })}
-                contractId={chatConfig.contractId}
-                currentUserId={userId}
-                otherUserName={chatConfig.otherUserName}
-            />
+            </PageContainer>
         </div>
     );
 }

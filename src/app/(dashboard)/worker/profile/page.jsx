@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX } from 'react-icons/fi';
+import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText } from 'react-icons/fi';
+import HashLoader from '@/Components/common/HashLoader';
+import AvatarUpload from '@/Components/profile/AvatarUpload';
+import ResumeUpload from '@/Components/profile/ResumeUpload';
 import '@/css/profile.css';
 
 export default function WorkerProfilePage() {
@@ -22,6 +25,7 @@ export default function WorkerProfilePage() {
         headline: '',
         country: '',
         avatar_url: '',
+        resume_path: '',
     });
 
     const [stats, setStats] = useState({
@@ -85,6 +89,7 @@ export default function WorkerProfilePage() {
                     headline: profileData.headline || '',
                     country: profileData.country || '',
                     avatar_url: profileData.avatar_url || '',
+                    resume_path: profileData.resume_path || '',
                 });
                 setStats({
                     total_earnings: profileData.total_earnings || 0,
@@ -314,7 +319,7 @@ export default function WorkerProfilePage() {
         }
     };
 
-    if (loading) return <div className="profile-loading">Loading Profile...</div>;
+    if (loading) return <HashLoader text="" />;
 
     const completeness = calculateCompleteness();
 
@@ -351,7 +356,7 @@ export default function WorkerProfilePage() {
                                 <div className="edit-actions">
                                     <button className="cancel-btn" onClick={() => { setIsEditingBase(false); fetchData(); }}>Cancel</button>
                                     <button className="save-btn" onClick={handleBaseSave} disabled={saving}>
-                                        {saving ? 'Saving...' : 'Save'}
+                                        {saving ? <HashLoader text="" /> : 'Save'}
                                     </button>
                                 </div>
                             )}
@@ -361,13 +366,12 @@ export default function WorkerProfilePage() {
                             {!isEditingBase ? (
                                 <div className="info-display">
                                     <div className="avatar-section">
-                                        <div className="avatar-circle">
-                                            {profile.avatar_url ? (
-                                                <img src={profile.avatar_url} alt="Avatar" />
-                                            ) : (
-                                                <span>{profile.first_name?.charAt(0) || 'U'}</span>
-                                            )}
-                                        </div>
+                                        <AvatarUpload 
+                                            userId={user.id}
+                                            userName={profile.first_name}
+                                            currentUrl={profile.avatar_url}
+                                            onUploadSuccess={(url) => setProfile(prev => ({ ...prev, avatar_url: url }))}
+                                        />
                                         <div className="avatar-titles">
                                             <h3>{profile.first_name} {profile.last_name}</h3>
                                             <p className="headline-text">{profile.headline || 'Add a professional headline'}</p>
@@ -482,6 +486,20 @@ export default function WorkerProfilePage() {
                         </div>
                     </div>
 
+                    {/* DOCUMENTS SECTION */}
+                    <div className="profile-card">
+                        <div className="card-header">
+                            <h2>Documents</h2>
+                        </div>
+                        <div className="card-body">
+                            <ResumeUpload 
+                                userId={user?.id}
+                                resumePath={profile.resume_path}
+                                onUploadSuccess={(path) => setProfile(prev => ({ ...prev, resume_path: path }))}
+                            />
+                        </div>
+                    </div>
+
                     {/* EDUCATION SECTION */}
                     <div className="profile-card">
                         <div className="card-header">
@@ -551,7 +569,7 @@ export default function WorkerProfilePage() {
                                             setEduForm({ institution: '', degree: '', field_of_study: '', start_year: '', end_year: '' });
                                         }}>Cancel</button>
                                         <button className="save-btn" onClick={handleEduSave} disabled={saving || !eduForm.institution || !eduForm.start_year}>
-                                            {saving ? 'Saving...' : 'Save Education'}
+                                            {saving ? <HashLoader text="" /> : 'Save Education'}
                                         </button>
                                     </div>
                                 </div>
@@ -603,7 +621,9 @@ export default function WorkerProfilePage() {
                         </div>
                         <div className="stat-item">
                             <span className="stat-label">Average Rating</span>
-                            <span className="stat-value"> {stats.average_rating.toFixed(1)}</span>
+                            <span className="stat-value">
+                                {stats.average_rating > 0 ? `★${stats.average_rating.toFixed(1)}` : '• NEW'}
+                            </span>
                         </div>
                     </div>
 
@@ -678,7 +698,7 @@ export default function WorkerProfilePage() {
                                 cursor: 'pointer'
                             }}
                         >
-                            {saving ? 'Processing...' : 'Delete My Account'}
+                            {saving ? <HashLoader text="" /> : 'Delete My Account'}
                         </button>
                     </div>
 
@@ -701,6 +721,7 @@ export default function WorkerProfilePage() {
         if (mySkills.length > 0) score += 20;
         if (myEducation.length > 0) score += 10;
         if (availability.preferred_role_type) score += 10;
+        if (profile.resume_path) score += 10;
 
         return Math.min(score, 100);
     }
