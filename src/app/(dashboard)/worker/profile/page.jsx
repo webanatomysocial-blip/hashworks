@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText } from 'react-icons/fi';
+import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText, FiChevronLeft, FiCheck, FiLogOut } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
 import AvatarUpload from '@/Components/profile/AvatarUpload';
 import ResumeUpload from '@/Components/profile/ResumeUpload';
+import { Card } from "@/Components/ui/Card";
+import { Button } from "@/Components/ui/Button";
+import { Badge } from "@/Components/ui/Badge";
 import '@/css/profile.css';
 
 export default function WorkerProfilePage() {
@@ -140,6 +143,16 @@ export default function WorkerProfilePage() {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            router.push('/');
+        } catch (error) {
+            console.error('Error logging out:', error);
+        }
+    };
+
     const handleBaseSave = async () => {
         setSaving(true);
         try {
@@ -177,14 +190,45 @@ export default function WorkerProfilePage() {
         setProfile({ ...profile, [e.target.name]: e.target.value });
     };
 
-    const handleSkillAdd = async (skillId) => {
+    const handleSkillAdd = async (skillName) => {
+        if (!skillName.trim()) return;
         setSaving(true);
         try {
-            const { error } = await supabase
+            // 1. Check if skill exists in global skills table
+            let { data: skill, error: skillError } = await supabase
+                .from('skills')
+                .select('id')
+                .ilike('name', skillName.trim())
+                .maybeSingle();
+
+            let skillId;
+            if (!skill) {
+                // 2. Create new global skill if doesn't exist
+                const { data: newSkill, error: createError } = await supabase
+                    .from('skills')
+                    .insert([{ name: skillName.trim() }])
+                    .select('id')
+                    .single();
+                if (createError) throw createError;
+                skillId = newSkill.id;
+            } else {
+                skillId = skill.id;
+            }
+
+            // 3. Check if worker already has this skill
+            const alreadyHas = mySkills.some(ms => ms.skill_id === skillId);
+            if (alreadyHas) {
+                setIsAddingSkill(false);
+                return;
+            }
+
+            // 4. Link skill to worker
+            const { error: linkError } = await supabase
                 .from('worker_skills')
                 .insert([{ worker_id: user.id, skill_id: skillId }]);
 
-            if (error) throw error;
+            if (linkError) throw linkError;
+            
             setIsAddingSkill(false);
             fetchData();
         } catch (error) {
@@ -210,14 +254,15 @@ export default function WorkerProfilePage() {
         }
     };
 
-    const handleEduSave = async () => {
+    const handleEduSave = async (quickData = null) => {
         setSaving(true);
         try {
+            const dataToSave = quickData || eduForm;
             const payload = {
-                ...eduForm,
+                ...dataToSave,
                 worker_id: user.id,
-                start_year: parseInt(eduForm.start_year),
-                end_year: eduForm.end_year ? parseInt(eduForm.end_year) : null
+                start_year: parseInt(dataToSave.start_year),
+                end_year: dataToSave.end_year ? parseInt(dataToSave.end_year) : null
             };
 
             if (editingEduId) {
@@ -324,252 +369,221 @@ export default function WorkerProfilePage() {
     const completeness = calculateCompleteness();
 
     return (
-        <div className="profile-dashboard">
-            <header className="profile-header">
-                <div>
-                    <h1>Worker Profile</h1>
+        <div className="profile-dashboard" style={{ padding: 0 }}>
+            {/* Premium Sticky Header */}
+            <header className="hw-profile-header">
+                <div className="hw-profile-header-slot left">
+                    <button onClick={() => router.back()} className="hw-back-btn">
+                        <FiChevronLeft size={24} color="#64748B" />
+                    </button>
                 </div>
-                <div className="completeness-indicator">
-                    <div className="comp-text">
-                        <span>Profile Completeness</span>
-                        <span>{completeness}%</span>
-                    </div>
-                    <div className="comp-bar-bg">
-                        <div className="comp-bar-fill" style={{ width: `${completeness}%` }}></div>
+                
+                <div className="hw-profile-header-slot center">
+                    <h2 className="hw-profile-title">Worker Profile</h2>
+                </div>
+                
+                <div className="hw-profile-header-slot right">
+                    <div className="header-completeness">
+                        <div className="header-comp-text">
+                            <span>Completeness {completeness}%</span>
+                        </div>
+                        <div className="header-comp-bar">
+                            <div className="header-comp-fill" style={{ width: `${completeness}%` }}></div>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <div className="profile-grid">
+            <div style={{ padding: '24px 0' }}>
+
+            {/* Premium Hero Section */}
+            <section className="profile-hero-section">
+                <div className="profile-hero-banner"></div>
+                <div className="profile-hero-content">
+                    <div className="profile-avatar-premium">
+                        <AvatarUpload 
+                            userId={user.id}
+                            userName={profile.first_name}
+                            currentUrl={profile.avatar_url}
+                            onUploadSuccess={(url) => setProfile(prev => ({ ...prev, avatar_url: url }))}
+                        />
+                        <div className="profile-status-ring">
+                            <div className="profile-status-dot"></div>
+                        </div>
+                    </div>
+                    <h1 className="text-display-lg" style={{ color: '#0F172A', marginBottom: '8px' }}>
+                        {profile.first_name} {profile.last_name}
+                    </h1>
+                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>
+                        {profile.headline || 'Professional Freelancer'}
+                    </p>
+                </div>
+            </section>
+
+            <div className="profile-grid" style={{ marginTop: '0' }}>
                 {/* LEFT COLUMN */}
                 <div className="profile-col-main">
 
                     {/* BASE INFO CARD */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Basic Information</h2>
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-32)' }}>
+                            <h2 className="text-headline-md">Identity Details</h2>
                             {!isEditingBase ? (
-                                <button className="edit-icon-btn" onClick={() => setIsEditingBase(true)}>
-                                    <FiEdit2 /> Edit
-                                </button>
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditingBase(true)}>
+                                    <FiEdit2 /> Edit Profile
+                                </Button>
                             ) : (
                                 <div className="edit-actions">
-                                    <button className="cancel-btn" onClick={() => { setIsEditingBase(false); fetchData(); }}>Cancel</button>
-                                    <button className="save-btn" onClick={handleBaseSave} disabled={saving}>
-                                        {saving ? <HashLoader text="" /> : 'Save'}
-                                    </button>
+                                    <Button variant="ghost" size="sm" onClick={() => { setIsEditingBase(false); fetchData(); }}>Cancel</Button>
+                                    <Button variant="primary" size="sm" onClick={handleBaseSave} disabled={saving}>
+                                        {saving ? "..." : 'Save Changes'}
+                                    </Button>
                                 </div>
                             )}
                         </div>
 
-                        <div className="card-body">
+                        <div className="card-body" style={{ padding: 0 }}>
                             {!isEditingBase ? (
                                 <div className="info-display">
-                                    <div className="avatar-section">
-                                        <AvatarUpload 
-                                            userId={user.id}
-                                            userName={profile.first_name}
-                                            currentUrl={profile.avatar_url}
-                                            onUploadSuccess={(url) => setProfile(prev => ({ ...prev, avatar_url: url }))}
-                                        />
-                                        <div className="avatar-titles">
-                                            <h3>{profile.first_name} {profile.last_name}</h3>
-                                            <p className="headline-text">{profile.headline || 'Add a professional headline'}</p>
+                                    <div className="hw-info-grid">
+                                        <div className="hw-info-item">
+                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Username</label>
+                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.username || '@notset'}</p>
+                                        </div>
+                                        <div className="hw-info-item">
+                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Phone</label>
+                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.phone || 'Not set'}</p>
+                                        </div>
+                                        <div className="hw-info-item">
+                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Country</label>
+                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.country || 'Not set'}</p>
                                         </div>
                                     </div>
 
-                                    <div className="info-grid">
-                                        <div className="info-item">
-                                            <label>Username</label>
-                                            <p>{profile.username || 'Not set'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Phone</label>
-                                            <p>{profile.phone || 'Not set'}</p>
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Country</label>
-                                            <p>{profile.country || 'Not set'}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="info-item full-width">
-                                        <label>Bio {profile.bio ? '' : <span className="req-badge">Required</span>}</label>
-                                        <p className="bio-text">{profile.bio || 'Tell hirers about yourself. A bio is required to apply for jobs.'}</p>
+                                    <div className="hw-info-item" style={{ marginTop: '32px' }}>
+                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Bio {profile.bio ? '' : <span style={{ color: 'var(--hw-error)' }}>(Required)</span>}</label>
+                                        <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '16px', borderRadius: '16px' }}>
+                                            {profile.bio || 'Tell hirers about yourself. A bio is required to apply for jobs.'}
+                                        </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="info-edit-form">
                                     <div className="form-row">
-                                        <div className="form-group">
-                                            <label>First Name</label>
-                                            <input type="text" name="first_name" value={profile.first_name} onChange={handleBaseChange} />
+                                        <div className="hw-floating-group">
+                                            <label className="hw-floating-label">First Name</label>
+                                            <input className="hw-floating-input" type="text" name="first_name" value={profile.first_name} onChange={handleBaseChange} />
                                         </div>
-                                        <div className="form-group">
-                                            <label>Last Name</label>
-                                            <input type="text" name="last_name" value={profile.last_name} onChange={handleBaseChange} />
+                                        <div className="hw-floating-group">
+                                            <label className="hw-floating-label">Last Name</label>
+                                            <input className="hw-floating-input" type="text" name="last_name" value={profile.last_name} onChange={handleBaseChange} />
                                         </div>
                                     </div>
-                                    <div className="form-group">
-                                        <label>Professional Headline</label>
-                                        <input type="text" name="headline" placeholder="e.g. Senior React Developer" value={profile.headline} onChange={handleBaseChange} />
+                                    <div className="hw-floating-group">
+                                        <label className="hw-floating-label">Professional Headline</label>
+                                        <input className="hw-floating-input" type="text" name="headline" placeholder="e.g. Senior React Developer" value={profile.headline} onChange={handleBaseChange} />
                                     </div>
                                     <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Username</label>
-                                            <input type="text" name="username" value={profile.username} onChange={handleBaseChange} />
+                                        <div className="hw-floating-group">
+                                            <label className="hw-floating-label">Username</label>
+                                            <input className="hw-floating-input" type="text" name="username" value={profile.username} onChange={handleBaseChange} />
                                         </div>
-                                        <div className="form-group">
-                                            <label>Phone</label>
-                                            <input type="text" name="phone" value={profile.phone} onChange={handleBaseChange} />
+                                        <div className="hw-floating-group">
+                                            <label className="hw-floating-label">Phone</label>
+                                            <input className="hw-floating-input" type="text" name="phone" value={profile.phone} onChange={handleBaseChange} />
                                         </div>
                                     </div>
-                                    <div className="form-group">
-                                        <label>Country</label>
-                                        <input type="text" name="country" value={profile.country} onChange={handleBaseChange} />
+                                    <div className="hw-floating-group">
+                                        <label className="hw-floating-label">Country</label>
+                                        <input className="hw-floating-input" type="text" name="country" value={profile.country} onChange={handleBaseChange} />
                                     </div>
-                                    <div className="form-group">
-                                        <label>Bio *</label>
-                                        <textarea name="bio" rows="4" value={profile.bio} onChange={handleBaseChange} placeholder="Write a professional summary..."></textarea>
+                                    <div className="hw-floating-group">
+                                        <label className="hw-floating-label">Bio *</label>
+                                        <textarea className="hw-floating-input" name="bio" rows="4" value={profile.bio} onChange={handleBaseChange} placeholder="Write a professional summary..."></textarea>
                                     </div>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </Card>
 
                     {/* SKILLS SECTION */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Skills</h2>
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
+                            <h2 className="text-headline-md">Expertise & Skills</h2>
                             {!isAddingSkill && (
-                                <button className="add-text-btn" onClick={() => setIsAddingSkill(true)}>
+                                <Button variant="ghost" size="sm" onClick={() => setIsAddingSkill(true)}>
                                     <FiPlus /> Add Skill
-                                </button>
+                                </Button>
                             )}
                         </div>
-                        <div className="card-body">
+                        <div className="card-body" style={{ padding: 0 }}>
                             {isAddingSkill && (
-                                <div className="add-skill-form">
-                                    <div className="skill-search-container">
-                                        <select
-                                            onChange={(e) => {
-                                                if (e.target.value) handleSkillAdd(e.target.value);
+                                <div className="hw-floating-group">
+                                    <label className="hw-floating-label">Skill Name (Press Enter)</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <input
+                                            autoFocus
+                                            className="hw-floating-input"
+                                            placeholder="e.g. React Native, Copywriting..."
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleSkillAdd(e.target.value);
+                                                    e.target.value = '';
+                                                }
                                             }}
-                                            defaultValue=""
-                                            className="skill-select"
-                                        >
-                                            <option value="" disabled>Select a skill...</option>
-                                            {allSkills
-                                                .filter(s => !mySkills.some(ms => ms.skill_id === s.id))
-                                                .map(skill => (
-                                                    <option key={skill.id} value={skill.id}>{skill.name}</option>
-                                                ))
-                                            }
-                                        </select>
-                                        <button className="cancel-icon-btn" onClick={() => setIsAddingSkill(false)}><FiX /></button>
+                                        />
+                                        <button className="hw-back-btn" onClick={() => setIsAddingSkill(false)} style={{ background: 'var(--hw-surface-high)' }}>
+                                            <FiX />
+                                        </button>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="skills-container">
-                                {mySkills.length === 0 ? (
-                                    <p className="empty-text">No skills added yet.</p>
+                            <div className="hw-chip-group">
+                                {mySkills.length === 0 && !isAddingSkill ? (
+                                    <p className="text-body-md" style={{ fontStyle: 'italic' }}>No skills added yet.</p>
                                 ) : (
                                     mySkills.map(ws => (
-                                        <div key={ws.id} className="skill-tag">
-                                            <span>{ws.skills?.name}</span>
-                                            <FiX className="skill-remove" onClick={() => handleSkillRemove(ws.id)} />
+                                        <div key={ws.id} className="hw-premium-chip" style={{ background: 'var(--hw-surface-highest)', border: '1.5px solid var(--hw-surface-high)', borderRadius: '16px', padding: '12px 20px' }}>
+                                            <span className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{ws.skills?.name}</span>
+                                            <div className="hw-chip-remove" onClick={() => handleSkillRemove(ws.id)} style={{ color: 'var(--hw-text-secondary)' }}>
+                                                <FiX size={16} />
+                                            </div>
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
-                    </div>
-
-                    {/* DOCUMENTS SECTION */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Documents</h2>
-                        </div>
-                        <div className="card-body">
-                            <ResumeUpload 
-                                userId={user?.id}
-                                resumePath={profile.resume_path}
-                                onUploadSuccess={(path) => setProfile(prev => ({ ...prev, resume_path: path }))}
-                            />
-                        </div>
-                    </div>
+                    </Card>
 
                     {/* EDUCATION SECTION */}
-                    <div className="profile-card">
-                        <div className="card-header">
-                            <h2>Education</h2>
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
+                            <h2 className="text-headline-md">Education History</h2>
                             {!isAddingEdu && (
-                                <button className="add-text-btn" onClick={() => setIsAddingEdu(true)}>
-                                    <FiPlus /> Add Education
-                                </button>
+                                <Button variant="ghost" size="sm" onClick={() => setIsAddingEdu(true)}>
+                                    <FiPlus /> Add Entry
+                                </Button>
                             )}
                         </div>
-                        <div className="card-body">
+                        <div className="card-body" style={{ padding: 0 }}>
                             {isAddingEdu && (
-                                <div className="edu-form">
-                                    <div className="form-group">
-                                        <label>Institution *</label>
+                                <div className="hw-floating-group">
+                                    <label className="hw-floating-label">Institution & Degree (Press Enter)</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
                                         <input
-                                            type="text"
-                                            value={eduForm.institution}
-                                            onChange={(e) => setEduForm({ ...eduForm, institution: e.target.value })}
-                                            placeholder="e.g. Stanford University"
+                                            autoFocus
+                                            className="hw-floating-input"
+                                            placeholder="e.g. B.Tech Computer Science, IIT Delhi (2023)"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleEduSave({ institution: e.target.value, start_year: new Date().getFullYear() });
+                                                    e.target.value = '';
+                                                }
+                                            }}
                                         />
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Degree</label>
-                                            <input
-                                                type="text"
-                                                value={eduForm.degree}
-                                                onChange={(e) => setEduForm({ ...eduForm, degree: e.target.value })}
-                                                placeholder="e.g. Bachelor of Science"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Field of Study</label>
-                                            <input
-                                                type="text"
-                                                value={eduForm.field_of_study}
-                                                onChange={(e) => setEduForm({ ...eduForm, field_of_study: e.target.value })}
-                                                placeholder="e.g. Computer Science"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Start Year *</label>
-                                            <input
-                                                type="number"
-                                                value={eduForm.start_year}
-                                                onChange={(e) => setEduForm({ ...eduForm, start_year: e.target.value })}
-                                                placeholder="2018"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>End Year (or Expected)</label>
-                                            <input
-                                                type="number"
-                                                value={eduForm.end_year}
-                                                onChange={(e) => setEduForm({ ...eduForm, end_year: e.target.value })}
-                                                placeholder="2022"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="edit-actions" style={{ justifyContent: 'flex-end', marginTop: '10px' }}>
-                                        <button className="cancel-btn" onClick={() => {
-                                            setIsAddingEdu(false);
-                                            setEditingEduId(null);
-                                            setEduForm({ institution: '', degree: '', field_of_study: '', start_year: '', end_year: '' });
-                                        }}>Cancel</button>
-                                        <button className="save-btn" onClick={handleEduSave} disabled={saving || !eduForm.institution || !eduForm.start_year}>
-                                            {saving ? <HashLoader text="" /> : 'Save Education'}
+                                        <button className="hw-back-btn" onClick={() => setIsAddingEdu(false)} style={{ background: 'var(--hw-surface-high)' }}>
+                                            <FiX />
                                         </button>
                                     </div>
                                 </div>
@@ -577,23 +591,23 @@ export default function WorkerProfilePage() {
 
                             <div className="education-list" style={{ marginTop: isAddingEdu ? '24px' : '0' }}>
                                 {myEducation.length === 0 && !isAddingEdu ? (
-                                    <p className="empty-text">No education history added.</p>
+                                    <p className="text-body-md" style={{ fontStyle: 'italic' }}>Qualification details will appear here.</p>
                                 ) : (
                                     myEducation.map(edu => (
-                                        <div key={edu.id} className="list-item">
+                                        <div key={edu.id} className="list-item" style={{ borderBottom: '1px solid var(--hw-surface-high)', padding: '20px 0' }}>
                                             <div className="li-header">
-                                                <div>
-                                                    <h3 className="li-title">{edu.institution}</h3>
-                                                    <p className="li-subtitle">
+                                                <div style={{ flex: 1 }}>
+                                                    <h3 className="text-title-md" style={{ marginBottom: '4px' }}>{edu.institution}</h3>
+                                                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>
                                                         {edu.degree}{edu.field_of_study ? ` in ${edu.field_of_study}` : ''}
                                                     </p>
-                                                    <p className="li-meta" style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                                                        {edu.start_year} - {edu.end_year || 'Present'}
+                                                    <p className="text-label-sm" style={{ marginTop: '8px', color: 'var(--hw-primary)', fontWeight: 800 }}>
+                                                        {edu.start_year} — {edu.end_year || 'PRESENT'}
                                                     </p>
                                                 </div>
-                                                <div className="li-actions">
-                                                    <button onClick={() => handleEduEdit(edu)}><FiEdit2 size={16} /></button>
-                                                    <button onClick={() => handleEduDelete(edu.id)} style={{ color: '#fca5a5' }}><FiTrash2 size={16} /></button>
+                                                <div className="li-actions" style={{ display: 'flex', gap: '12px' }}>
+                                                    <button onClick={() => handleEduEdit(edu)} style={{ background: 'var(--hw-surface-high)', padding: '8px', borderRadius: '10px', border: 'none', cursor: 'pointer', color: 'var(--hw-text-secondary)' }}><FiEdit2 size={16} /></button>
+                                                    <button onClick={() => handleEduDelete(edu.id)} style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '8px', borderRadius: '10px', border: 'none', cursor: 'pointer', color: 'var(--hw-error)' }}><FiTrash2 size={16} /></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -601,74 +615,100 @@ export default function WorkerProfilePage() {
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </Card>
 
                 </div>
 
                 {/* RIGHT COLUMN */}
-                <div className="profile-col-side">
+                <div className="profile-col-side" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hw-space-24)' }}>
+                    
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px', background: 'var(--hw-primary-gradient)', border: 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff', marginBottom: '12px' }}>
+                            <FiCheck size={20} strokeWidth={3} />
+                            <h3 className="text-title-md" style={{ color: '#fff', margin: 0 }}>Pro Profile Tip</h3>
+                        </div>
+                        <p className="text-body-md" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, margin: 0 }}>
+                            Profiles with a professional headline and a detailed bio get 40% more job invitations.
+                        </p>
+                    </Card>
 
-                    {/* STATS CARD */}
-                    <div className="profile-card stats-card">
-                        <h2>Your Stats</h2>
-                        <div className="stat-item">
-                            <span className="stat-label">Jobs Completed</span>
-                            <span className="stat-value">{stats.total_jobs_completed}</span>
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                        <h3 className="text-headline-md hw-mb-24">Worker Pulse</h3>
+                        <div className="profile-stats-grid">
+                            <div className="premium-stat-card">
+                                <span className="premium-stat-label">Earnings</span>
+                                <span className="premium-stat-value">₹{stats.total_earnings.toLocaleString()}</span>
+                            </div>
+                            <div className="premium-stat-card">
+                                <span className="premium-stat-label">Rating</span>
+                                <span className="premium-stat-value">
+                                    {stats.average_rating > 0 ? `★${stats.average_rating.toFixed(1)}` : '• NEW'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Total Earnings</span>
-                            <span className="stat-value">₹{stats.total_earnings.toLocaleString()}</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Average Rating</span>
-                            <span className="stat-value">
-                                {stats.average_rating > 0 ? `★${stats.average_rating.toFixed(1)}` : '• NEW'}
-                            </span>
-                        </div>
-                    </div>
+                    </Card>
 
                     {/* AVAILABILITY CARD */}
-                    <div className="profile-card availability-card">
-                        <div className="card-header">
-                            <h2>Availability</h2>
+                    <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
+                            <h2 className="text-headline-md">Status</h2>
                             {!isEditingAvail ? (
-                                <button className="edit-icon-btn" onClick={() => setIsEditingAvail(true)}>
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditingAvail(true)}>
                                     <FiEdit2 />
-                                </button>
+                                </Button>
                             ) : (
                                 <div className="edit-actions">
-                                    <button className="cancel-btn" onClick={() => setIsEditingAvail(false)}>Cancel</button>
-                                    <button className="save-btn" onClick={handleAvailabilityUpdate} disabled={saving}>Save</button>
+                                    <Button variant="ghost" size="sm" onClick={() => setIsEditingAvail(false)}>Cancel</Button>
+                                    <Button variant="primary" size="sm" onClick={handleAvailabilityUpdate} disabled={saving}>Save</Button>
                                 </div>
                             )}
                         </div>
-                        <div className="card-body">
+                        <div className="card-body" style={{ padding: 0 }}>
                             {!isEditingAvail ? (
-                                <>
-                                    <p className={`status-badge ${availability.is_available ? 'active' : 'inactive'}`}>
-                                        {availability.is_available ? 'Available for Work' : 'Not Available'}
-                                    </p>
-                                    <div className="avail-info" style={{ marginTop: '16px' }}>
-                                        <label style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>PREFERRED ROLE</label>
-                                        <p style={{ margin: '4px 0 0 0', fontWeight: '600', textTransform: 'capitalize' }}>{availability.preferred_role_type}</p>
+                                <div className="hw-flex hw-flex-col hw-gap-16">
+                                    <div style={{ 
+                                        padding: '16px', 
+                                        borderRadius: '16px', 
+                                        background: availability.is_available ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                        color: availability.is_available ? 'var(--hw-success)' : 'var(--hw-text-secondary)',
+                                        textAlign: 'center',
+                                        fontWeight: 800,
+                                        fontSize: '14px',
+                                        letterSpacing: '0.05em'
+                                    }}>
+                                        {availability.is_available ? 'AVAILABLE FOR WORK' : 'CURRENTLY BUSY'}
                                     </div>
-                                </>
+                                    <div className="avail-info">
+                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>PREFERRED ROLE</label>
+                                        <p className="text-body-md" style={{ textTransform: 'uppercase', fontWeight: 800, color: 'var(--hw-text-primary)' }}>{availability.preferred_role_type}</p>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="avail-edit">
-                                    <label className="checkbox-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '16px' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={availability.is_available}
-                                            onChange={(e) => setAvailability({ ...availability, is_available: e.target.checked })}
-                                        />
-                                        <span style={{ fontSize: '14px', fontWeight: '600' }}>Available for new opportunities</span>
-                                    </label>
-                                    <div className="form-group">
-                                        <label>Preferred Role Type</label>
+                                    <div className="hw-switch-wrapper" style={{ marginBottom: '24px', border: '2px solid var(--hw-surface-high)', borderRadius: '18px' }}>
+                                        <div className="hw-flex hw-gap-12 hw-items-center">
+                                            <div>
+                                                <p className="text-body-md" style={{ fontWeight: 800, color: 'var(--hw-text-primary)', margin: 0 }}>Open to work</p>
+                                                <p className="text-label-sm" style={{ textTransform: 'none', margin: 0 }}>Show profile to hirers</p>
+                                            </div>
+                                        </div>
+                                        <label className="hw-switch">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={availability.is_available}
+                                                onChange={(e) => setAvailability({ ...availability, is_available: e.target.checked })}
+                                            />
+                                            <span className="hw-switch-slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div className="hw-floating-group">
+                                        <label className="hw-floating-label">Preferred Role Type</label>
                                         <select
                                             value={availability.preferred_role_type}
                                             onChange={(e) => setAvailability({ ...availability, preferred_role_type: e.target.value })}
-                                            className="skill-select"
+                                            className="hw-floating-input"
+                                            style={{ appearance: 'none' }}
                                         >
                                             <option value="internship">Internship</option>
                                             <option value="gig">Gig / Freelance</option>
@@ -678,31 +718,45 @@ export default function WorkerProfilePage() {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </Card>
 
-                    <div className="profile-card delete-card" style={{ marginTop: '20px', border: '1px solid #fee2e2', padding: '20px' }}>
-                        <h3 style={{ color: '#991b1b', fontSize: '16px', marginBottom: '8px' }}>Delete Account</h3>
-                      
-                        <button
-                            className="delete-account-btn"
-                            onClick={handleDeleteAccount}
-                            disabled={saving}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                background: '#fee2e2',
-                                color: '#991b1b',
-                                border: '1px solid #fecaca',
-                                borderRadius: '8px',
-                                fontWeight: '600',
-                                cursor: 'pointer'
+                    <div style={{ marginTop: '32px', marginBottom: '16px' }}>
+                        <Button
+                            variant="primary"
+                            onClick={handleLogout}
+                            style={{ 
+                                width: '100%', 
+                                height: '56px', 
+                                borderRadius: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '12px',
+                                fontWeight: 800,
+                                fontSize: '16px',
+                                background: '#1e293b'
                             }}
                         >
-                            {saving ? <HashLoader text="" /> : 'Delete My Account'}
-                        </button>
+                            <FiLogOut size={20} /> Logout Account
+                        </Button>
                     </div>
 
+                    <div className="profile-card delete-card" style={{ marginTop: '12px', border: '2px solid rgba(239, 68, 68, 0.1)', padding: '24px', borderRadius: '24px', background: 'rgba(239, 68, 68, 0.02)' }}>
+                        <h3 className="text-label-sm" style={{ color: 'var(--hw-error)', marginBottom: '12px' }}>Account Security</h3>
+                        <p className="text-body-sm" style={{ color: 'var(--hw-text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+                            Deactivating your account will hide your identity and all active applications immediately.
+                        </p>
+                        <Button
+                            variant="danger"
+                            onClick={handleDeleteAccount}
+                            disabled={saving}
+                            style={{ width: '100%', height: '48px', borderRadius: '14px' }}
+                        >
+                            {saving ? "..." : 'Deactivate Account'}
+                        </Button>
+                    </div>
                 </div>
+            </div>
             </div>
         </div>
     );

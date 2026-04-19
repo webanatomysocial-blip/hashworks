@@ -95,72 +95,93 @@ export default function DiscoveryStack({ jobs, onEmpty }) {
       )}
 
       <div className="hw-card-stack">
-        {currentJobsDisplay.map((job, index) => (
-          <TinderCard
-            ref={childRefs[index]}
-            key={job.id}
-            onSwipe={(dir) => swiped(dir, job.id)}
-            preventSwipe={["up", "down"]}
-            className="hw-tinder-card-wrapper"
-            style={{ position: 'absolute', width: '100%', height: '100%' }}
-          >
-            <div 
-              className="hw-discovery-card"
-              onClick={() => router.push(`/worker/browse/detail?id=${job.id}`)}
-              style={{ cursor: 'pointer' }}
+        {[...currentJobsDisplay].reverse().map((job) => {
+          const index = currentJobsDisplay.findIndex((j) => j.id === job.id);
+          
+          // Apply stacking logic: the top card (index 0) has no offset. Lower cards get scaled down and shifted down.
+          // We limit it to the first 3 visible offset layers for aesthetics.
+          const visibleIndex = Math.min(index, 3);
+          const stackScale = 1 - visibleIndex * 0.05;
+          const stackTranslateY = visibleIndex * 15; // move down slightly
+          const stackOpacity = index > 3 ? 0 : 1;
+          
+          return (
+            <TinderCard
+              ref={childRefs[index]}
+              key={job.id}
+              onSwipe={(dir) => swiped(dir, job.id)}
+              preventSwipe={["up", "down"]}
+              className="hw-tinder-card-wrapper hw-stack-card-layer"
             >
-              {/* Top Row: Time & Urgency */}
-              <div className="hw-discovery-badge-row">
-                <div className="hw-time-badge">{timeAgo(job.created_at)}</div>
-                {job.urgency === 'immediate' && (
-                  <Badge variant="urgent" showDot>URGENT</Badge>
-                )}
-              </div>
+              <div 
+                className="hw-discovery-card hw-absolute-fill"
+                onClick={() => router.push(`/worker/browse/detail?id=${job.id}`)}
+                style={{ 
+                  cursor: 'pointer',
+                  transform: `scale(${stackScale}) translateY(${stackTranslateY}px)`,
+                  opacity: stackOpacity,
+                  transition: 'all 0.4s ease',
+                  backgroundColor: 'var(--hw-surface-highest)'
+                }}
+              >
+                {/* Top Row: Time & Urgency */}
+                <div className="hw-discovery-badge-row">
+                  <div className="hw-time-badge">{timeAgo(job.created_at)}</div>
+                  {job.urgency === 'immediate' && (
+                    <Badge variant="urgent" showDot>URGENT</Badge>
+                  )}
+                </div>
 
-              {/* Conditional Image Area */}
-              <div className="hw-discovery-image-container">
-                {job.reference_image_url ? (
-                  <img src={job.reference_image_url} alt={job.title} className="hw-discovery-image" />
-                ) : (
-                  <div className="hw-discovery-no-image">
-                    <div className="hw-payout-display">₹{job.budget_min?.toLocaleString()}</div>
-                    <p className="text-body-md hw-opacity-60">Payout for this task</p>
-                  </div>
-                )}
-              </div>
+                {/* Image or Fallback Area */}
+                <div className="hw-discovery-image-container">
+                  {job.reference_image_url ? (
+                    <img src={job.reference_image_url} alt={job.title} className="hw-discovery-image" />
+                  ) : (
+                    <div className="hw-discovery-no-image">
+                      <div className="hw-payout-display">
+                        {job.budget_max || job.budget_min ? `₹${(job.budget_max || job.budget_min).toLocaleString()}` : 'TBA'}
+                      </div>
+                      <p className="text-body-md hw-opacity-60">Payout for this task</p>
+                    </div>
+                  )}
+                </div>
 
-              {/* Content Area */}
-              <div className="hw-discovery-content">
-                <div>
-                  <h1 className="hw-discovery-title">{job.title}</h1>
-                  
-                  <div className="hw-discovery-meta-row">
-                    <span className="hw-flex hw-items-center hw-gap-4">
-                      <FiMapPin /> {job.city || 'Nearby'}
-                    </span>
-                    <span className="hw-flex hw-items-center hw-gap-4">
-                      <FiClock /> {job.estimated_minutes ? `${job.estimated_minutes}m` : 'Quick'}
-                    </span>
-                    {job.verified_only && (
-                      <Badge variant="active" showDot style={{ fontSize: '10px' }}>
-                        VERIFIED
+                {/* Content Area */}
+                <div className="hw-discovery-content">
+                  <div>
+                    <h1 className="hw-discovery-title">{job.title}</h1>
+                    
+                    <div className="hw-discovery-meta-row">
+                      <span className="hw-flex hw-items-center hw-gap-4">
+                        <FiMapPin /> {job.city || job.subcity || job.location_type || 'Nearby'}
+                      </span>
+                      <span className="hw-flex hw-items-center hw-gap-4">
+                        <FiClock /> {job.estimated_minutes ? `${job.estimated_minutes}m` : 'Quick'}
+                      </span>
+                      {job.verified_only && (
+                        <Badge variant="active" showDot style={{ fontSize: '10px' }}>
+                          VERIFIED
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="hw-discovery-tags">
+                      <Badge variant="neutral">{job.category || 'Gig'}</Badge>
+                      <Badge variant="success">
+                        Payout {job.budget_max || job.budget_min ? `₹${job.budget_max || job.budget_min}` : 'TBA'}
                       </Badge>
-                    )}
+                    </div>
                   </div>
 
-                  <div className="hw-discovery-tags">
-                    <Badge variant="neutral">{job.category || 'Gig'}</Badge>
-                    <Badge variant="success">Payout ₹{job.budget_max || job.budget_min}</Badge>
+                  <div className="hw-swipe-hint">
+                    SWIPE TO EXPLORE <FiChevronRight />
                   </div>
                 </div>
 
-                <div className="hw-swipe-hint">
-                  SWIPE TO EXPLORE <FiChevronRight />
-                </div>
               </div>
-            </div>
-          </TinderCard>
-        ))}
+            </TinderCard>
+          );
+        })}
       </div>
 
       {/* Manual Actions Row */}

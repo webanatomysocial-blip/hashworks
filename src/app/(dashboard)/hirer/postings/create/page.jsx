@@ -180,14 +180,14 @@ export default function CreateJobPage() {
                 background: '#fff', 
                 position: 'sticky', 
                 top: 0, 
-                zIndex: 2000, 
+                zIndex: 100, 
                 borderBottom: '1.5px solid #f1f5f9'
             }}>
-                <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
-                    <FiX size={24} color="#64748B" />
+                <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
+                    <FiChevronLeft size={24} color="#64748B" />
                 </button>
-                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1C4DFF', margin: 0 }}>Post a Task</h2>
-                <div style={{ width: '40px' }} />
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Post a Task</h2>
+                <div style={{ width: 40 }} />
             </header>
 
             <div style={{ padding: '24px 0 100px 0', flex: 1 }}>

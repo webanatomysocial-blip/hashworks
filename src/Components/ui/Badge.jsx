@@ -11,12 +11,15 @@ export function Badge({
   ...props 
 }) {
   const variants = {
-    urgent: { bg: "rgba(244, 63, 94, 0.12)", color: "#f43f5e" },
-    active: { bg: "rgba(28, 77, 255, 0.12)", color: "#1c4dff" },
-    success: { bg: "rgba(16, 185, 129, 0.12)", color: "#10b981" },
-    completed: { bg: "rgba(16, 185, 129, 0.12)", color: "#10b981" },
-    waiting: { bg: "rgba(245, 158, 11, 0.12)", color: "#f59e0b" },
+    urgent: { bg: "rgba(255, 106, 61, 0.12)", color: "#FF6A3D" }, // Using --hw-urgent
+    active: { bg: "rgba(28, 77, 255, 0.12)", color: "#1C4DFF" }, // Using --hw-primary
+    success: { bg: "rgba(34, 197, 94, 0.12)", color: "#22C55E" }, // Using --hw-success
+    completed: { bg: "rgba(34, 197, 94, 0.12)", color: "#22C55E" },
+    waiting: { bg: "rgba(245, 158, 11, 0.12)", color: "#F59E0B" }, // Using --hw-warning
     neutral: { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b" },
+    closed: { bg: "rgba(239, 68, 68, 0.12)", color: "#EF4444" }, // Using --hw-error
+    draft: { bg: "rgba(148, 163, 184, 0.12)", color: "#94a3b8" },
+    in_progress: { bg: "rgba(28, 77, 255, 0.12)", color: "#1C4DFF" },
   };
 
   const v = variants[variant] || variants.neutral;

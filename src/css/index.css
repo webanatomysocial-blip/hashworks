@@ -258,7 +258,7 @@ body {
   width: 100%;
   max-width: 100vw;
   margin: 0 auto;
-  padding: 0px 0px 60px 0px; /* mobile: strict 60px top/bottom, 20px sides */
+  padding: 0px 0px calc(100px + env(safe-area-inset-bottom)) 0px; /* mobile: 0 top, 0 sides, 120px+ bottom for nav room */
   box-sizing: border-box;
   overflow-x: hidden;
 }
@@ -331,6 +331,7 @@ body {
 .hw-justify-center { justify-content: center; }
 .hw-gap-8 { gap: var(--hw-space-8); }
 .hw-gap-12 { gap: var(--hw-space-12); }
+.hw-gap-15 { gap: 15px; }
 .hw-gap-16 { gap: var(--hw-space-16); }
 .hw-gap-24 { gap: var(--hw-space-24); }
 
@@ -565,7 +566,7 @@ body {
 }
 
 .hw-discovery-card {
-  height: 500px;
+  height: 380px;
   cursor: grab;
   display: flex;
   flex-direction: column;
@@ -588,25 +589,25 @@ body {
 }
 
 .hw-card-stack {
-    height: 520px !important;
+    height: 420px;
     position: relative;
 }
 
 .hw-discovery-card {
-    background: var(--color-surface) !important;
+    background: var(--hw-surface-highest) !important;
     border-radius: 32px !important;
     overflow: hidden;
     height: 100% !important;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important;
+    box-shadow: var(--hw-shadow-high) !important;
     position: relative;
 }
 
 .hw-discovery-image-container {
     position: relative;
     width: 100%;
-    height: 240px;
+    height: 180px;
     background: #f8fafc;
 }
 
@@ -671,7 +672,7 @@ body {
 .hw-payout-display {
     font-size: 48px;
     font-weight: 900;
-    color: var(--color-text);
+    color: var(--hw-text-primary);
     line-height: 1;
     margin-bottom: 12px;
 }
@@ -679,7 +680,7 @@ body {
 .hw-discovery-title {
     font-size: 20px;
     font-weight: 700;
-    color: var(--color-text);
+    color: var(--hw-text-primary);
     line-height: 1.3;
     margin-bottom: 20px;
     display: -webkit-box;
@@ -739,6 +740,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    margin: 20px 0px;
     gap: 32px;
 }
 

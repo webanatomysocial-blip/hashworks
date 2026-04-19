@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import HashLoader from '@/Components/common/HashLoader';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
 import '@/css/auth.css';
 
 export default function Login() {
@@ -26,71 +27,74 @@ export default function Login() {
         setLoading(true);
         setError(null);
 
-        const { data, error: loginError } = await supabase.auth.signInWithPassword({
-            email: formData.email,
-            password: formData.password,
-        });
+        try {
+            const { data, error: loginError } = await supabase.auth.signInWithPassword({
+                email: formData.email,
+                password: formData.password,
+            });
 
-        if (loginError) {
-            setError(loginError.message);
-        } else {
-            router.push('/role'); // Redirect to role selection
+            if (loginError) {
+                setError(loginError.message);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', data.user.id).single();
+                if (profile && profile.first_name) {
+                    router.push('/worker'); // Bypass onboarding
+                } else {
+                    router.push('/role'); // Redirect to onboarding
+                }
+            }
+        } catch (err) {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
         <div className="auth-container">
+            <Link href="/" className="auth-logo-text">Hashworks</Link>
+            
             <div className="auth-card">
-                <div className="auth-logo">#</div>
-                <h1 className="auth-title">Get Started now</h1>
-                <p className="auth-subtitle">Create an account or log in to explore about our app</p>
-
-                <div className="auth-tab-container" role="tablist">
-                    <Link href="/signup" className="auth-tab" role="tab">
-                        Sign Up
-                    </Link>
-                    <button
-                        className="auth-tab active"
-                        onClick={() => { }}
-                        role="tab"
-                        aria-selected="true"
-                    >
-                        Log In
-                    </button>
-                </div>
+                <h1 className="auth-title">Welcome Back</h1>
+                <p className="auth-subtitle">Continue your journey with Hashworks.</p>
 
                 {error && <div className="auth-message auth-error-message">{error}</div>}
 
-                <form
-                    className="auth-form"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSubmit(e);
-                    }}
-                >
+                <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="auth-input-group">
-                        <label className="auth-label">Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            placeholder="username@gmail.com"
-                            className="auth-input"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                            autoComplete="email"
-                        />
+                        <div className="auth-label-row">
+                            <label className="auth-label">Email Address</label>
+                        </div>
+                        <div className="auth-input-wrapper">
+                            <FiMail className="auth-input-icon" size={20} />
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="name@company.com"
+                                className="auth-input"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                                autoComplete="email"
+                            />
+                        </div>
                     </div>
 
                     <div className="auth-input-group">
-                        <label className="auth-label">Password</label>
-                        <div className="auth-password-wrapper">
+                        <div className="auth-label-row">
+                            <label className="auth-label">Password</label>
+                            <Link href="/forgot-password" style={{ fontSize: '12px', fontWeight: 800, color: '#4f74ff', textDecoration: 'none', textTransform: 'uppercase' }}>
+                                Forgot?
+                            </Link>
+                        </div>
+                        <div className="auth-input-wrapper">
+                            <FiLock className="auth-input-icon" size={20} />
                             <input
                                 type={showPassword ? "text" : "password"}
                                 name="password"
-                                placeholder="********"
-                                className="auth-input auth-input-password"
+                                placeholder="........"
+                                className="auth-input"
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
@@ -101,70 +105,66 @@ export default function Login() {
                                 className="auth-eye-icon"
                                 onClick={() => setShowPassword(!showPassword)}
                             >
-                                {showPassword ? (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
-                                    </svg>
-                                ) : (
-
-
-
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                                        <line x1="1" y1="1" x2="23" y2="23"></line>
-                                    </svg>
-                                )}
+                                {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
                             </button>
                         </div>
                     </div>
 
-                    <div className="auth-options-row">
-                        <label className="auth-remember-me">
-                            <input type="checkbox" /> Remember me
-                        </label>
-                        <Link href="/forgot-password" className="auth-forgot-password">
-                            Forgot Password ?
-                        </Link>
-                    </div>
-
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
-                        {loading ? <HashLoader text="" /> : 'Log In'}
+                        {loading ? <HashLoader text="" /> : (
+                            <>
+                                Sign In <FiArrowRight size={20} />
+                            </>
+                        )}
                     </button>
                 </form>
 
                 <div className="auth-divider">
-                    <span className="auth-divider-text">Or login with</span>
+                    <span className="auth-divider-text">Or continue with</span>
                 </div>
 
                 <div className="auth-social-row">
                     <button className="auth-social-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                        </svg>
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+                        Google
                     </button>
                     <button className="auth-social-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
-                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                        </svg>
-                    </button>
-                    <button className="auth-social-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000">
-                            <path d="M17.05 20.28c-.96.44-1.94.67-2.91.67-1.46 0-2.81-.46-3.8-1.28-1.09-.9-1.85-2.13-2.12-3.47-.27-1.34-.06-2.7.59-4.04.65-1.34 1.72-2.43 3.01-3.07 1.29-.64 2.8-.82 4.25-.51 1.45.31 2.76 1.09 3.69 2.2l.27-.67c.18-.45.45-.85.8-1.18.35-.33.77-.58 1.23-.74l.43-.15c-.48-.52-1.04-.96-1.65-1.3-1.01-.56-2.14-.86-3.29-.86-1.57 0-3.08.57-4.26 1.6-1.18 1.04-1.96 2.44-2.21 4.02-.25 1.58.15 3.19 1.12 4.54.97 1.35 2.39 2.33 3.99 2.77 1.6.44 3.3.31 4.8-.37 1.5-.68 2.75-1.83 3.52-3.24l-.62.24c-.46.18-.95.27-1.44.27z" />
-                            <path d="M12.05 1c-6.11 0-11.05 4.94-11.05 11.05s4.94 11.05 11.05 11.05 11.05-4.94 11.05-11.05-4.94-11.05-11.05-11.05z" />
-                        </svg>
-                    </button>
-                    <button className="auth-social-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-                            <line x1="12" y1="18" x2="12.01" y2="18" />
-                        </svg>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" />
+                        Apple
                     </button>
                 </div>
+
+                <div className="auth-footer-prompt">
+                    Don't have an account? <Link href="/signup" className="auth-link">Join Now</Link>
+                </div>
             </div>
+
+            <div className="auth-value-section">
+                <div className="auth-value-card">
+                    <div className="auth-value-icon-box" style={{ background: '#C8FF2C' }}>
+                        <div style={{ width: '20px', height: '20px', background: '#0F172A', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
+                    </div>
+                    <div className="auth-value-content">
+                        <span className="auth-value-label">Fastest Onboarding</span>
+                        <span className="auth-value-title">Start in <span>2 mins</span></span>
+                    </div>
+                </div>
+                <div className="auth-value-card" style={{ background: '#EFF6FF' }}>
+                    <div className="auth-value-icon-box" style={{ background: '#FCA5A5' }}>
+                        <div style={{ width: '18px', height: '18px', border: '3px solid #0F172A', borderRadius: '4px' }}></div>
+                    </div>
+                    <div className="auth-value-content">
+                        <span className="auth-value-label">Earnings Sync</span>
+                        <span className="auth-value-title">Real-time <span>₹ updates</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <footer style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '20px', textAlign: 'center' }}>
+                <p style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 ,padding:"0 20px"}}>
+                    By continuing, you agree to Hashworks <Link href="/terms" style={{ color: '#64748b' }}>Terms of Service</Link> and <Link href="/privacy" style={{ color: '#64748b' }}>Privacy Policy</Link>.
+                </p>
+            </footer>
         </div>
     );
 }

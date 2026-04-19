@@ -46,10 +46,9 @@ export function JobCard({
                     variant={isApplied ? "ghost" : "primary"} 
                     onClick={() => onApply(job)} 
                     disabled={isApplied || isApplying}
-                    style={{ flex: 1, height: '44px', borderRadius: '22px', fontWeight: 800 }}
-                  >
-                    {isApplied ? "Applied" : (isApplying ? "..." : "Accept Task")}
-                  </Button>
+                    >
+                      {isApplied ? "Applied" : (isApplying ? "..." : "Apply")}
+                    </Button>
               </>
           }
       />

@@ -190,14 +190,23 @@ function MessagesContent() {
                     zIndex: 10
                 }}
             >
-                <nav className="wh-detail-header" style={{ marginBottom: 0, borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button onClick={() => router.back()} className="wh-nav-icon-btn" style={{ padding: '4px', marginLeft: '-8px' }}>
-                            <FiChevronLeft size={28} color="#4f74ff" />
-                        </button>
-                        <h1 className="wh-header-title" style={{ margin: 0, lineHeight: 1 }}>Inbox</h1>
-                    </div>
-                </nav>
+                <header style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '16px 20px', 
+                    background: '#fff', 
+                    position: 'sticky', 
+                    top: 0, 
+                    zIndex: 100, 
+                    borderBottom: '1.5px solid #f1f5f9'
+                }}>
+                    <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
+                        <FiChevronLeft size={24} color="#64748B" />
+                    </button>
+                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Inbox</h2>
+                    <div style={{ width: 40 }} />
+                </header>
 
                 <div className="filter-chips-container" style={{ display: 'flex', gap: '8px', padding: '16px 20px', overflowX: 'auto', scrollbarWidth: 'none', borderBottom: '1px solid #f8fafc' }}>
                     {['All', 'Active', 'Awaiting Reply'].map(filter => (

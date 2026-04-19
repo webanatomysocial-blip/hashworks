@@ -6,14 +6,16 @@ import { useRouter } from 'next/navigation';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { Badge } from "@/Components/ui/Badge";
-import { Button } from "@/Components/ui/Button";
 import HashLoader from "@/Components/common/HashLoader.jsx";
-import { FiChevronRight, FiUsers, FiClock, FiCheckCircle } from 'react-icons/fi';
-import Link from 'next/link';
+import SectionHeader from '@/Components/common/SectionHeader';
+import { FiChevronRight, FiUsers, FiClock, FiSearch } from 'react-icons/fi';
+import { Button } from "@/Components/ui/Button";
 
 export default function ApplicationsPage() {
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const router = useRouter();
 
     const fetchApplications = useCallback(async () => {
@@ -58,46 +60,101 @@ export default function ApplicationsPage() {
         fetchApplications();
     }, [fetchApplications]);
 
+    const filteredApplications = applications.filter(app => {
+        const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
+        const matchesSearch = 
+            (app.worker?.first_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (app.worker?.last_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (app.jobs?.title?.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        return matchesStatus && matchesSearch;
+    });
+
     if (loading) return <HashLoader text="" />;
 
     return (
-        <div className="wh-dashboard">
+        <div className="wh-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: '40px' }}>
+            <SectionHeader title="Applications" />
+
             <PageContainer>
-                <div style={{ padding: '20px 16px' }}>
-                    <div className="hw-mb-32">
-                        <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
-                            Pending Reviews
-                        </h1>
-                        <p className="text-body-md" style={{ color: '#64748B', marginTop: '4px' }}>
-                            You have {applications.filter(a => a.status === 'pending').length} applications waiting for your decision.
+                <div style={{ padding: '24px 20px' }}>
+                    
+                    {/* Search & Filter Row */}
+                    <div style={{ marginBottom: '32px' }}>
+                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                            <FiSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                                type="text"
+                                className="hw-input"
+                                placeholder="Search by name or job title..."
+                                style={{ paddingLeft: '48px', height: '52px', borderRadius: '16px' }}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="hw-urgent-scroll" style={{ padding: '4px 0' }}>
+                            {['all', 'pending', 'accepted', 'rejected'].map((status) => (
+                                <Button
+                                    key={status}
+                                    variant={statusFilter === status ? "primary" : "ghost"}
+                                    size="sm"
+                                    className="hw-font-bold"
+                                    onClick={() => setStatusFilter(status)}
+                                    style={{ textTransform: 'capitalize', borderRadius: '12px', minWidth: '80px' }}
+                                >
+                                    {status}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '24px' }}>
+                        <p className="text-body-md" style={{ color: '#64748B', margin: 0 }}>
+                            {statusFilter === 'all' 
+                                ? `Showing all ${filteredApplications.length} applications.` 
+                                : `Showing ${filteredApplications.length} ${statusFilter} applications.`
+                            }
                         </p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {applications.length === 0 ? (
-                            <Card variant="border" padding="xl" className="hw-text-center">
+                        {filteredApplications.length === 0 ? (
+                            <Card variant="border" padding="xl" className="hw-text-center" style={{ borderRadius: '24px', borderStyle: 'dashed' }}>
                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
                                     <FiUsers size={24} />
                                 </div>
-                                <h3 className="text-title-md">No applications yet</h3>
-                                <p className="text-body-md">Active job postings will appear here once workers start applying.</p>
+                                <h3 className="text-title-md">No applications found</h3>
+                                <p className="text-body-md">
+                                    {searchTerm || statusFilter !== 'all' 
+                                        ? "Try adjusting your search or filters." 
+                                        : "Active job postings will appear here once workers start applying."
+                                    }
+                                </p>
+                                {(searchTerm || statusFilter !== 'all') && (
+                                    <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }} style={{ marginTop: '12px' }}>
+                                        Clear All Filters
+                                    </Button>
+                                )}
                             </Card>
                         ) : (
-                            applications.map(app => (
+                            filteredApplications.map(app => (
                                 <Card 
                                     key={app.id} 
                                     variant="elevated" 
                                     padding="lg" 
                                     className="hw-card-interactive"
                                     onClick={() => router.push(`/hirer/applications/review?id=${app.id}`)}
-                                    style={{ borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
+                                    style={{ borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.02)' }}
                                 >
                                     <div className="hw-flex hw-items-center hw-gap-16">
                                         <div className="wh-avatar-placeholder" style={{ width: '60px', height: '60px', borderRadius: '18px', background: '#f1f5f9' }}>
                                             {app.worker?.avatar_url ? (
                                                 <img src={app.worker.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '18px' }} />
                                             ) : (
-                                                (app.worker?.first_name?.[0] || 'W').toUpperCase()
+                                                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--hw-primary)' }}>
+                                                    {(app.worker?.first_name?.[0] || 'W').toUpperCase()}
+                                                </div>
                                             )}
                                         </div>
                                         <div style={{ flex: 1 }}>

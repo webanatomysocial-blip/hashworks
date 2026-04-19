@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { FiArrowLeft, FiTrash2, FiMapPin, FiClock, FiDollarSign, FiZap } from "react-icons/fi";
+import { FiTrash2, FiMapPin, FiDollarSign, FiZap } from "react-icons/fi";
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { Button } from "@/Components/ui/Button";
 import HashLoader from "@/Components/common/HashLoader";
+import SectionHeader from "@/Components/common/SectionHeader";
 import "@/css/worker.css";
 
 export default function SavedJobsPage() {
@@ -93,8 +94,6 @@ export default function SavedJobsPage() {
         }
       } else {
         alert("Interest recorded! The owner will be notified.");
-        // Optional: Remove from wishlist after applying
-        // removeJob(jobId);
       }
     } catch (err) {
       console.error("Error applying to job:", err);
@@ -105,14 +104,11 @@ export default function SavedJobsPage() {
   if (loading) return <HashLoader />;
 
   return (
-    <div className="wh-dashboard" style={{ padding: 'var(--space-xl) 0' }}>
-      <PageContainer size="md">
-        <header style={{ marginBottom: 'var(--space-xl)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          <Button variant="ghost" onClick={() => router.back()} style={{ padding: '8px' }}>
-            <FiArrowLeft size={20} />
-          </Button>
-          <h1 className="text-display-sm">My Wishlist</h1>
-        </header>
+    <div className="wh-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh' }}>
+      <SectionHeader title="My Wishlist" />
+
+      <PageContainer>
+        <div style={{ padding: '24px 20px' }}>
 
         {savedJobs.length === 0 ? (
           <Card variant="flat" padding="xl" className="hw-text-center">
@@ -179,6 +175,7 @@ export default function SavedJobsPage() {
             ))}
           </div>
         )}
+        </div>
       </PageContainer>
     </div>
   );

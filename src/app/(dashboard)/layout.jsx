@@ -65,10 +65,21 @@ export default function DashboardLayout({ children }) {
   }, [router]);
 
   const hideGlobalHeader = [
+    "/worker/browse",
     "/worker/browse/detail",
-    "/hirer/postings",
+    "/worker/saved",
+    "/worker/active-gigs",
+    "/worker/applications",
+    "/profile/view",
     "/messages",
-  ].some(path => pathname?.startsWith(path));
+    "/hirer/postings",
+    "/hirer/applications",
+    "/worker/active-gigs/",
+    "/worker/profile",
+    "/hirer/profile",
+    "/worker/workercontract",
+    "/hirer/hirercontract",
+  ].some(path => pathname === path || pathname?.startsWith(path + "/"));
 
   if (loading) {
     return <HashLoader text="" />;
@@ -78,7 +89,7 @@ export default function DashboardLayout({ children }) {
     <div className="dashboard-layout">
       <StatsProvider>
         {!hideGlobalHeader && <DashboardHeader />}
-        <main className={(pathname?.includes("/worker/browse/detail") || pathname?.includes("/messages") || pathname?.includes("/hirer/postings")) ? "" : "dashboard-main"}>
+        <main className={hideGlobalHeader ? "" : "dashboard-main"}>
           {children}
           {/* <Footer /> */}
         </main>

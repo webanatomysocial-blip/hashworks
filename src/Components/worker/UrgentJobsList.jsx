@@ -19,7 +19,7 @@ export default function UrgentJobsList({ jobs = [], onViewAll, onJobClick }) {
           onClick={onViewAll}
           style={{ paddingRight: 0, fontWeight: 700, color: '#475569' }}
         >
-          View All <FiArrowRight size={13} style={{ marginLeft: '4px' }} />
+          View All Urgent <FiArrowRight size={13} style={{ marginLeft: '4px' }} />
         </button>
       </div>
 
@@ -48,7 +48,7 @@ export default function UrgentJobsList({ jobs = [], onViewAll, onJobClick }) {
                 URGENT
               </Badge>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>
-                {job.distance ? `${job.distance.toFixed(2)} km away` : (job.subcity || job.city || 'Near you')}
+                {job.subcity ? `${job.subcity}${job.city ? `, ${job.city}` : ''}` : (job.city || (job.distance ? `${job.distance.toFixed(1)} km away` : 'Near you'))}
               </div>
             </div>
 

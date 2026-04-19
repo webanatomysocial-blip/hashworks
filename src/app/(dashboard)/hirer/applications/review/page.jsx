@@ -4,16 +4,13 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { 
-    FiArrowLeft, 
     FiMapPin, 
-    FiCalendar, 
     FiCheck, 
     FiX, 
     FiBriefcase, 
     FiMessageCircle, 
-    FiUser, 
-    FiMail, 
-    FiGlobe 
+    FiGlobe,
+    FiChevronRight
 } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
 import Link from 'next/link';
@@ -22,6 +19,7 @@ import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { Badge } from "@/Components/ui/Badge";
 import { Button } from "@/Components/ui/Button";
+import SectionHeader from "@/Components/common/SectionHeader";
 
 /* helper: full name from profile */
 function fullName(p) {
@@ -54,7 +52,6 @@ function ApplicationReviewContent() {
             const { data: { user } } = await supabase.auth.getUser();
             setCurrentUser(user);
 
-            // Fetch Application details (with worker profile and job)
             const { data: appData, error: appErr } = await supabase
                 .from('applications')
                 .select(`
@@ -67,7 +64,6 @@ function ApplicationReviewContent() {
             
             if (appErr) throw appErr;
 
-            // Fetch contract if accepted
             if (appData.status === 'accepted') {
                 const { data: contractData } = await supabase
                     .from('contracts')
@@ -93,16 +89,14 @@ function ApplicationReviewContent() {
     }, [fetchData]);
 
     const handleAction = async (status) => {
+        if (!application || actionLoading) return;
         setActionLoading(true);
         try {
-            // Only update application status if it's not already in that status
-            if (application.status !== status) {
-                const { error: updateErr } = await supabase
-                    .from('applications')
-                    .update({ status })
-                    .eq('id', appId);
-                if (updateErr) throw updateErr;
-            }
+            const { error: updateErr } = await supabase
+                .from('applications')
+                .update({ status })
+                .eq('id', appId);
+            if (updateErr) throw updateErr;
 
             if (status === 'accepted') {
                 const { data: existingContract } = await supabase
@@ -114,7 +108,7 @@ function ApplicationReviewContent() {
                 
                 if (existingContract) {
                     await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', application.job_id);
-                    setApplication(prev => ({ ...prev, status, contract: existingContract }));
+                    setApplication(prev => ({ ...prev, status: 'accepted', contract: existingContract }));
                 } else {
                     const { data: newContract, error: contractErr } = await supabase.from('contracts').insert([{
                         job_id: application.job_id,
@@ -127,12 +121,13 @@ function ApplicationReviewContent() {
 
                     if (contractErr) throw contractErr;
                     await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', application.job_id);
-                    setApplication(prev => ({ ...prev, status, contract: newContract }));
+                    setApplication(prev => ({ ...prev, status: 'accepted', contract: newContract }));
                 }
             } else {
                 setApplication(prev => ({ ...prev, status }));
             }
         } catch (err) {
+            console.error('Action error:', err);
             alert(`Failed to ${status} application: ${err.message || 'Unknown error'}`);
         } finally {
             setActionLoading(false);
@@ -140,155 +135,175 @@ function ApplicationReviewContent() {
     };
 
     const openChat = () => {
-        if (application.contract) {
+        if (application?.contract) {
             router.push(`/messages?contract=${application.contract.id}`);
         }
     };
 
-    if (!appId) return <PageContainer size="lg"><Card padding="xl">No Application ID provided.</Card></PageContainer>;
+    if (!appId) return <PageContainer size="lg"><div style={{ padding: '24px 20px' }}><Card padding="xl">No Application ID provided.</Card></div></PageContainer>;
     if (loading) return <HashLoader text="" />;
-    if (!application) return <PageContainer size="lg"><Card padding="xl">Application not found.</Card></PageContainer>;
+    if (!application) return <PageContainer size="lg"><div style={{ padding: '24px 20px' }}><Card padding="xl">Application not found.</Card></div></PageContainer>;
 
     const p = application.worker || {};
     const job = application.job || {};
 
     return (
-        <div style={{ padding: 'var(--space-2xl) 0' }}>
-            <PageContainer size="lg">
-                <header style={{ marginBottom: 'var(--space-xl)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-                    <Button variant="ghost" onClick={() => router.back()} style={{ padding: '8px' }}>
-                        <FiArrowLeft size={20} />
-                    </Button>
-                    <h1 className="text-display-xl" style={{ fontSize: '32px' }}>Review Application</h1>
-                </header>
+        <div className="hirer-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: 'var(--hw-space-48)' }}>
+            <SectionHeader title="Application Review" />
 
-                <div className="wh-detail-main-layout">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-                        {/* ── Applicant ── */}
-                        <Card variant="elevated" padding="xl">
-                            <div style={{ display: 'flex', gap: 'var(--space-xl)', alignItems: 'center' }}>
+            <PageContainer>
+                <div className="wh-detail-main-layout" style={{ margin: 'var(--hw-space-24) auto', padding: '0 20px' }}>
+                    
+                    {/* Primary Column */}
+                    <div className="hw-flex hw-flex-col hw-gap-24">
+                        
+                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                            <div className="hw-flex hw-flex-col hw-gap-24 hw-items-center">
                                 <div style={{ 
-                                    width: '80px', height: '80px', borderRadius: 'var(--radius-pill)', 
-                                    backgroundColor: 'var(--color-border-light)', overflow: 'hidden',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '28px', color: 'var(--color-primary)', fontWeight: '700'
+                                    width: '100px', 
+                                    height: '100px', 
+                                    borderRadius: '50%', 
+                                    backgroundColor: 'var(--hw-surface-highest)', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    fontSize: '32px', 
+                                    color: 'var(--hw-primary)', 
+                                    fontWeight: '800',
+                                    boxShadow: 'var(--hw-shadow-low)',
+                                    overflow: 'hidden'
                                 }}>
-                                    {p?.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p)}
+                                    {p.avatar_url ? (
+                                        <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : initials(p)}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                        <h2 className="text-headline-lg">{fullName(p)}</h2>
+
+                                <div className="hw-text-center hw-w-full">
+                                    <div className="hw-flex hw-flex-col hw-items-center hw-gap-8 hw-mb-12">
+                                        <h2 className="text-headline-lg" style={{ margin: 0, fontSize: '24px' }}>{fullName(p)}</h2>
                                         <Badge variant={application.status === 'accepted' ? 'success' : application.status === 'rejected' ? 'urgent' : 'waiting'}>
                                             {application.status}
                                         </Badge>
                                     </div>
-                                    <p className="text-body-md" style={{ color: 'var(--color-text-main)' }}>{p.headline || 'Professional Freelancer'}</p>
-                                    <div style={{ display: 'flex', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
-                                        <span className="text-label-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <FiMapPin /> {p.country || 'Global'}
-                                        </span>
+                                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', marginBottom: 'var(--hw-space-16)' }}>
+                                        {p.headline || 'Professional Freelancer'}
+                                    </p>
+                                    <div className="hw-flex hw-justify-center hw-gap-16">
+                                        <div className="text-label-sm hw-flex hw-items-center hw-gap-4">
+                                            <FiMapPin size={14} /> {p.country || 'Global'}
+                                        </div>
                                         {p.website && (
-                                            <Button variant="ghost" size="sm" onClick={() => window.open(p.website)}>
-                                                <FiGlobe /> Portfolio
-                                            </Button>
+                                            <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', fontWeight: 700, textDecoration: 'none' }}>
+                                                <FiGlobe size={14} /> PORTFOLIO
+                                            </a>
                                         )}
                                     </div>
                                 </div>
                             </div>
                         </Card>
 
-                        {/* ── Cover Letter ── */}
-                        <Card variant="elevated" padding="xl">
-                            <h3 className="text-headline-lg" style={{ marginBottom: 'var(--space-md)' }}>Cover Letter</h3>
-                            <p className="text-body-md" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
-                                {application.cover_letter || "The applicant didn't provide a cover letter."}
-                            </p>
-                        </Card>
-
-                        {/* ── About Worker ── */}
-                        {p.bio && (
-                            <Card variant="elevated" padding="xl">
-                                <h3 className="text-headline-lg" style={{ marginBottom: 'var(--space-md)' }}>About {p.first_name}</h3>
-                                <p className="text-body-md" style={{ lineHeight: '1.7' }}>{p.bio}</p>
+                        <div className="hw-section" style={{ padding: '0 4px' }}>
+                            <h3 className="text-title-md hw-mb-16" style={{ letterSpacing: '0.05em' }}>COVER LETTER</h3>
+                            <Card padding="xl" variant="elevated" style={{ borderRadius: '20px', border: '1.5px solid var(--hw-surface-high)' }}>
+                                <p className="text-body-md" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: 'var(--hw-text-main)' }}>
+                                    {application.cover_letter || "No cover letter provided."}
+                                </p>
                             </Card>
+                        </div>
+
+                        {p.bio && (
+                            <div className="hw-section" style={{ padding: '0 4px' }}>
+                                <h3 className="text-title-md hw-mb-16" style={{ letterSpacing: '0.05em' }}>ABOUT WORKER</h3>
+                                <Card padding="xl" variant="elevated" style={{ borderRadius: '20px', border: '1.5px solid var(--hw-surface-high)' }}>
+                                    <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)' }}>{p.bio}</p>
+                                </Card>
+                            </div>
                         )}
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-                        {/* ── Action Card ── */}
-                        <Card variant="elevated" padding="xl" style={{ position: 'sticky', top: 'var(--space-xl)' }}>
-                            <h3 className="text-headline-lg" style={{ marginBottom: 'var(--space-lg)' }}>Decision</h3>
-                            
-                            {application.status === 'pending' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                    <Button 
-                                        variant="primary" 
-                                        size="lg" 
-                                        onClick={() => handleAction('accepted')} 
-                                        disabled={actionLoading}
-                                    >
-                                        {actionLoading ? "..." : <><FiCheck /> Accept</>}
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="lg" 
-                                        onClick={() => handleAction('rejected')} 
-                                        disabled={actionLoading}
-                                        style={{ color: 'var(--color-danger)' }}
-                                    >
-                                        {actionLoading ? "..." : <><FiX /> Reject</>}
-                                    </Button>
-                                </div>
-                            ) : application.status === 'accepted' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                    <div style={{ 
-                                        padding: 'var(--space-md)', backgroundColor: 'var(--color-success-light)', 
-                                        color: 'var(--color-success)', borderRadius: 'var(--radius-md)', 
-                                        fontWeight: '600', textAlign: 'center' 
-                                    }}>
-                                        Application Accepted
+                    {/* Secondary Column */}
+                    <div className="hw-flex hw-flex-col hw-gap-24">
+                        {/* Desktop Decision Card */}
+                        <div className="wh-desktop-apply-box">
+                            <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
+                                <h3 className="text-title-md hw-mb-24">REVIEW DECISION</h3>
+                                
+                                {application.status === 'pending' ? (
+                                    <div className="hw-flex hw-flex-col hw-gap-12">
+                                        <Button onClick={() => handleAction('accepted')} disabled={actionLoading} style={{ height: '52px', borderRadius: '12px' }}>
+                                            <FiCheck style={{ marginRight: '8px' }} /> Accept Applicant
+                                        </Button>
+                                        <Button variant="ghost" onClick={() => handleAction('rejected')} disabled={actionLoading} style={{ color: 'var(--hw-error)', height: '52px' }}>
+                                            <FiX style={{ marginRight: '8px' }} /> Reject Application
+                                        </Button>
                                     </div>
-                                    <Button variant="primary" size="lg" onClick={openChat}>
-                                        <FiMessageCircle /> Chat with {p.first_name}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div style={{ 
-                                    padding: 'var(--space-md)', backgroundColor: 'var(--color-danger-light)', 
-                                    color: 'var(--color-danger)', borderRadius: 'var(--radius-md)', 
-                                    fontWeight: '600', textAlign: 'center' 
-                                }}>
-                                    Application Rejected
-                                </div>
-                            )}
-                        </Card>
+                                ) : (
+                                    <div className="hw-flex hw-flex-col hw-gap-16">
+                                        <div style={{ 
+                                            padding: '16px', 
+                                            borderRadius: '12px', 
+                                            background: application.status === 'accepted' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: application.status === 'accepted' ? 'var(--hw-success)' : 'var(--hw-error)',
+                                            textAlign: 'center',
+                                            fontWeight: 800
+                                        }}>
+                                            APPLICATION {application.status?.toUpperCase()}
+                                        </div>
+                                        {application.status === 'accepted' && (
+                                            <Button onClick={openChat} style={{ height: '52px', borderRadius: '12px' }}>
+                                                <FiMessageCircle style={{ marginRight: '8px' }} /> Chat with {p.first_name}
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
 
-                        {/* ── Job Context ── */}
-                        <Card variant="elevated" padding="lg">
-                            <h3 className="text-headline-lg" style={{ marginBottom: 'var(--space-md)', fontSize: '18px' }}>Job Context</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                <div>
-                                    <h4 className="text-title-md" style={{ fontSize: '15px' }}>{job.title}</h4>
-                                    <p className="text-label-sm" style={{ marginTop: '4px' }}>
-                                        Posted {new Date(job.created_at).toLocaleDateString()}
-                                    </p>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <span className="text-body-md" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                        <FiMapPin /> {job.city || (job.location_type === 'remote' ? 'Remote' : 'Various')}
-                                    </span>
-                                    <span className="text-body-md" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                        <FiBriefcase /> {job.category || 'Gig'}
-                                    </span>
-                                </div>
-                                <Link href={`/worker/browse/detail?id=${job.id}`} className="text-label-sm" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: '700' }}>
-                                    View full listing →
-                                </Link>
+                        <Card variant="elevated" padding="lg" style={{ borderRadius: '24px', border: '1px solid var(--hw-surface-high)' }}>
+                            <h3 className="text-label-sm hw-mb-16" style={{ color: 'var(--hw-text-secondary)', letterSpacing: '0.1em' }}>JOB CONTEXT</h3>
+                            <h4 className="text-title-md hw-mb-8" style={{ fontSize: '18px' }}>{job.title}</h4>
+                            <div className="hw-flex hw-flex-col hw-gap-12 hw-mb-20">
+                                <span className="text-body-sm hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiMapPin size={16} /> {job.city || 'Remote'}</span>
+                                <span className="text-body-sm hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiBriefcase size={16} /> {job.category || 'Gig'}</span>
                             </div>
+                            <Link href="/hirer/postings" className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', textDecoration: 'none', fontWeight: 800 }}>
+                                BACK TO POSTINGS <FiChevronRight />
+                            </Link>
                         </Card>
                     </div>
                 </div>
             </PageContainer>
+
+            {/* Mobile Sticky Action Footer */}
+            {application.status === 'pending' && (
+                <div className="wh-mobile-sticky-footer" style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+                    <div className="hw-flex hw-gap-12">
+                        <Button 
+                            onClick={() => handleAction('accepted')} 
+                            disabled={actionLoading} 
+                            style={{ flex: 2, height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 800 }}
+                        >
+                            {actionLoading ? "..." : "Accept Applicant"}
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => handleAction('rejected')} 
+                            disabled={actionLoading} 
+                            style={{ flex: 1, height: '60px', borderRadius: '18px', color: 'var(--hw-error)', border: '1.5px solid #F1F5F9', background: '#fff' }}
+                        >
+                            <FiX size={20} />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {application.status === 'accepted' && (
+                <div className="wh-mobile-sticky-footer">
+                    <Button onClick={openChat} style={{ width: '100%', height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 800 }}>
+                        <FiMessageCircle size={20} style={{ marginRight: '10px' }} /> CHAT WITH WORKER
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

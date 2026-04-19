@@ -1,107 +1,353 @@
-.role-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-    background-color: #f8fafc;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* Onboarding Design System */
+
+:root {
+    --wh-blue-primary: #0047ff;
+    --wh-lime-primary: #C8FF2C;
+    --wh-bg-light: #f8fafc;
+    --wh-text-dark: #0f172a;
+    --wh-text-muted: #64748b;
+    --wh-border-color: #e2e8f0;
+    --wh-radius-lg: 24px;
+    --wh-radius-md: 16px;
+    --wh-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
 }
 
-.role-card-wrapper {
+.onboarding-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #ffffff; /* Brighter background as per mockup */
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--wh-text-dark);
+}
+
+.onboarding-header {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    height: 60px;
+}
+
+.onboarding-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.onboarding-back-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--wh-text-dark);
+    display: flex;
+    align-items: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.onboarding-back-btn:hover {
+    background: #f1f5f9;
+}
+
+.onboarding-logo-text {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.onboarding-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
     width: 100%;
-    max-width: 450px;
+    height: 3px;
+    background-color: #eef2ff;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--wh-blue-primary);
+    transition: width 0.4s ease;
+}
+
+.onboarding-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 40px 24px;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.onboarding-title {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 24px;
+    letter-spacing: -2px;
+}
+
+.onboarding-subtitle {
+    font-size: 16px;
+    color: var(--wh-text-muted);
+    line-height: 1.5;
+    margin-bottom: 40px;
+}
+
+/* Step 1: Avatar Upload */
+.avatar-section {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.avatar-upload-wrapper {
+    position: relative;
+}
+
+.avatar-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: #f1f5f9;
+    border: 2px dashed var(--wh-border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.avatar-circle:hover {
+    border-color: var(--wh-blue-primary);
+}
+
+.avatar-circle.has-image {
+    border-style: solid;
+}
+
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder-icon {
+    color: #94a3b8;
+}
+
+.avatar-edit-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background-color: var(--wh-blue-primary);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.avatar-info-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.avatar-info-label {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.avatar-info-sub {
+    font-size: 13px;
+    color: var(--wh-text-muted);
+}
+
+/* Form Styling */
+.onboarding-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.input-label {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.onboarding-input {
+    width: 100%;
+    padding: 16px 20px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s;
+    background: #f8fafc;
+    color: var(--wh-text-dark);
+}
+
+.onboarding-input:focus {
+    background: #ffffff;
+    border-color: var(--wh-blue-primary);
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(0, 71, 255, 0.08);
+}
+
+.onboarding-input::placeholder {
+    color: #94a3b8;
+}
+
+.onboarding-submit-btn {
+    background-color: var(--wh-blue-primary);
+    color: white;
+    padding: 18px;
+    border-radius: 40px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: transform 0.2s;
+}
+
+.onboarding-submit-btn:hover {
+    transform: translateY(-2px);
+    background-color: #0036cc;
+}
+
+.onboarding-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Step 2: Goal Cards */
+.goal-cards-container {
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
 
-.role-card {
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.goal-card {
+    background-color: #f1f5f9; /* Subtle light bg as per mockup */
+    border-radius: 40px;
+    padding: 40px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    position: relative;
-    text-align: left;
+    gap: 20px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.2s;
 }
 
-.role-card:hover {
-    border-color: #1e293b;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+.goal-card:hover {
+    transform: scale(1.02);
 }
 
-.role-card.selected {
-    border-color: #1e293b;
-    background-color: #f8fafc;
+.goal-card.selected {
+    background-color: #ffffff;
+    border-color: var(--wh-blue-primary);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
-.role-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-
-.role-icon-box {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #1e293b;
-}
-
-.role-radio-circle {
-    width: 24px;
-    height: 24px;
-    border: 2px solid #cbd5e1;
+.goal-icon-box {
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    color: white;
 }
 
-.role-card:hover .role-radio-circle {
-    border-color: #1e293b;
+.goal-title {
+    font-size: 28px;
+    font-weight: 800;
 }
 
-.role-card.selected .role-radio-circle {
-    border-color: #1e293b;
-    border-width: 6px;
-}
-
-.role-text {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1e293b;
+.goal-desc {
+    font-size: 16px;
+    color: var(--wh-text-muted);
     line-height: 1.4;
 }
 
-.role-submit-btn {
-    background-color: #1e293b;
-    color: #ffffff;
-    padding: 16px;
-    border-radius: 12px;
-    font-size: 16px;
+/* Social Proof Footer */
+.social-proof-footer {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    margin-top: auto;
+}
+
+.user-count-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar-stack {
+    display: flex;
+}
+
+.stack-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin-left: -8px;
+}
+
+.stack-avatar:first-child {
+    margin-left: 0;
+}
+
+.stack-plus {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.user-count-text {
+    font-size: 12px;
+    color: var(--wh-text-muted);
     font-weight: 600;
-    border: none;
-    cursor: pointer;
-    margin-top: 20px;
-    transition: opacity 0.2s ease;
-    width: 100%;
 }
 
-.role-submit-btn:hover:not(:disabled) {
-    opacity: 0.9;
-}
-
-.role-submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+/* Mobile responsive fixes */
+@media (max-width: 480px) {
+    .onboarding-title {
+        font-size: 40px;
+    }
+    .onboarding-content {
+        padding: 24px;
+    }
 }

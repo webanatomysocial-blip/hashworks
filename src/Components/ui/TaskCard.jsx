@@ -39,9 +39,9 @@ export function TaskCard({
     return (
         <div 
             style={{ 
-                background: '#F4F7FB', 
+                background: '#FFFFFF', 
                 borderRadius: '24px', 
-                border: 'none', 
+                border: '1px solid var(--hw-surface-high)', 
                 padding: '24px', // lg padding equivalent
                 width: cardWidth,
                 boxSizing: 'border-box',

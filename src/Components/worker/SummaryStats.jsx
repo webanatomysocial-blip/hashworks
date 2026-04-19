@@ -15,26 +15,26 @@ export default function SummaryStats({
 }) {
   return (
     <div className="hw-grid-2">
-      <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onActiveClick}>
-        <div className="hw-flex hw-justify-between hw-items-center">
-          <div>
-            <span className="text-label-sm hw-mb-4 hw-display-block">Active Gigs</span>
-            <div className="text-display-xl hw-text-32">{activeCount}</div>
+      <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onActiveClick} style={{ borderRadius: '24px' }}>
+        <div className="hw-flex hw-flex-col">
+          <div className="hw-icon-box-success hw-mb-16" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
+            <FiBriefcase size={22} />
           </div>
-          <div className="hw-icon-box-sm hw-icon-box-success">
-            <FiBriefcase size={20} />
+          <div className="hw-flex hw-justify-between hw-items-end">
+            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Active Gigs</span>
+            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{activeCount}</div>
           </div>
         </div>
       </Card>
 
-      <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onApplicationsClick}>
-        <div className="hw-flex hw-justify-between hw-items-center">
-          <div>
-            <span className="text-label-sm hw-mb-4 hw-display-block">Applications</span>
-            <div className="text-display-xl hw-text-32">{acceptedCount}</div>
+      <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onApplicationsClick} style={{ borderRadius: '24px' }}>
+        <div className="hw-flex hw-flex-col">
+          <div className="hw-icon-box-primary hw-mb-16" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
+            <FiUsers size={22} />
           </div>
-          <div className="hw-icon-box-sm hw-icon-box-primary">
-            <FiUsers size={20} />
+          <div className="hw-flex hw-justify-between hw-items-end">
+            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Applications</span>
+            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{acceptedCount}</div>
           </div>
         </div>
       </Card>

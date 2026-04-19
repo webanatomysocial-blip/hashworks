@@ -3,16 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiArrowLeft, FiMessageCircle, FiMoreVertical, FiXCircle, FiActivity, FiBriefcase } from 'react-icons/fi';
+import { FiBriefcase } from 'react-icons/fi';
+import { useToast } from '@/context/ToastContext';
 import HashLoader from '@/Components/common/HashLoader';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
-import { Badge } from "@/Components/ui/Badge";
-import { Button } from "@/Components/ui/Button";
-import ActiveTaskBanner from "@/Components/common/ActiveTaskBanner";
+import { TaskCard } from "@/Components/ui/TaskCard";
+import SectionHeader from "@/Components/common/SectionHeader";
 
 export default function ActiveGigsPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [acceptedApps, setAcceptedApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
@@ -44,7 +45,6 @@ export default function ActiveGigsPage() {
                 if (fetchError) {
                     console.error('ActiveGigs: Error fetching active gigs:', fetchError);
                 } else {
-                    console.log('ActiveGigs: Data:', data);
                     setAcceptedApps(data || []);
                 }
             } catch (err) {
@@ -85,21 +85,11 @@ export default function ActiveGigsPage() {
     if (loading) return <HashLoader text="" />;
 
     return (
-        <div className="wh-dashboard" style={{ minHeight: '100vh', paddingBottom: '40px' }}>
-            <PageContainer>
-                <div style={{ padding: '20px 16px' }}>
-                    <div className="hw-mb-32">
-                        <Button variant="ghost" onClick={() => router.push('/worker')} style={{ marginBottom: '16px', padding: '0', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B' }}>
-                            <FiArrowLeft size={16} /> <span style={{ fontSize: '14px', fontWeight: 600 }}>Back to Dashboard</span>
-                        </Button>
-                        <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <FiActivity size={32} style={{ color: '#16A34A' }} /> All Active Gigs
-                        </h1>
-                        <p className="text-body-md" style={{ color: '#64748B', marginTop: '8px' }}>
-                            Manage your currently ongoing projects and communicate with hirers.
-                        </p>
-                    </div>
+        <div className="wh-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: '40px' }}>
+            <SectionHeader title="Active Gigs" />
 
+            <PageContainer>
+                <div style={{ padding: '24px 20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {acceptedApps.length === 0 ? (
                             <Card variant="border" padding="xl" className="hw-text-center">
@@ -111,11 +101,31 @@ export default function ActiveGigsPage() {
                             </Card>
                         ) : (
                             acceptedApps.map(contract => (
-                                <ActiveTaskBanner 
+                                <TaskCard 
                                     key={contract.id} 
-                                    contract={contract} 
-                                    role="worker" 
-                                    onClick={() => router.push(`/messages?contract=${contract.id}`)}
+                                    topTitleLabel="ACTIVE TASK"
+                                    title={contract.jobs?.title || 'Ongoing Task'}
+                                    thumbnailUrl={contract.jobs?.reference_image_url}
+                                    badge={{ 
+                                        text: contract.status.toUpperCase(), 
+                                        bg: '#DCFCE7', 
+                                        color: '#16A34A' 
+                                    }}
+                                    metrics={[
+                                        { label: 'EARN', value: contract.agreed_amount ? `₹${contract.agreed_amount.toLocaleString()}` : (contract.jobs?.budget_max ? `₹${contract.jobs.budget_max.toLocaleString()}` : "Market Rate") },
+                                        { label: 'HIRER', value: contract.hirer ? `${contract.hirer.first_name} ${contract.hirer.last_name || ''}` : "Pro" }
+                                    ]}
+                                    actionButtons={
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                router.push(`/worker/workercontract?id=${contract.id}`);
+                                            }}
+                                            style={{ flex: 1, background: 'var(--hw-primary)', color: '#fff', border: 'none', borderRadius: '22px', height: '48px', fontWeight: 800, cursor: 'pointer', fontSize: '14px' }}
+                                        >
+                                            View Details
+                                        </button>
+                                    }
                                 />
                             ))
                         )}

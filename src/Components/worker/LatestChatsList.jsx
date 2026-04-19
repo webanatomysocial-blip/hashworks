@@ -29,7 +29,7 @@ export default function LatestChatsList({ chats = [], onViewAll, onChatClick }) 
       </div>
 
       {/* Chat Rows */}
-      <div className="hw-flex hw-flex-col hw-gap-8">
+      <div className="hw-flex hw-flex-col hw-gap-16">
         {chats.map((chat) => {
           const person = chat.otherPerson;
           const initials = person

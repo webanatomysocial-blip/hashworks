@@ -3,17 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiArrowLeft, FiXCircle, FiSend, FiBriefcase, FiChevronRight, FiClock } from 'react-icons/fi';
-import HashLoader from '@/Components/common/HashLoader';
-import { PageContainer } from "@/Components/layouts/PageContainer";
-import { Card } from "@/Components/ui/Card";
-import { Badge } from "@/Components/ui/Badge";
-import { Button } from "@/Components/ui/Button";
+import { FiXCircle, FiBriefcase, FiClock, FiSearch } from 'react-icons/fi';
 
 export default function MyApplicationsPage() {
     const router = useRouter();
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [toast, setToast] = useState(null);
 
     const showToast = (message, type = 'success') => {
@@ -72,8 +69,6 @@ export default function MyApplicationsPage() {
         }
     };
 
-    if (loading) return <HashLoader text="" />;
-
     const getStatusText = (status) => {
         switch (status) {
             case 'accepted': return 'Accepted';
@@ -82,21 +77,27 @@ export default function MyApplicationsPage() {
         }
     };
 
-    const getBadgeStyle = (status) => {
-        switch (status) {
-            case 'accepted': return { background: '#ecfdf5', color: '#059669', border: '1px solid #10b981' };
-            case 'rejected': return { background: '#fef2f2', color: '#dc2626', border: '1px solid #ef4444' };
-            default: return { background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0' };
-        }
-    };
-
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
+    const filteredApplications = applications.filter(app => {
+        const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
+        const matchesSearch = 
+            (app.jobs?.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (app.jobs?.profiles?.first_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (app.jobs?.profiles?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        return matchesStatus && matchesSearch;
+    });
+
+    if (loading) return <HashLoader text="" />;
+
     return (
-        <div className="wh-dashboard" style={{ minHeight: '100vh', paddingBottom: '40px', position: 'relative' }}>
+        <div className="wh-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: '40px', position: 'relative' }}>
+            <SectionHeader title="My Applications" />
+            
             {toast && (
                 <div style={{
                     position: 'fixed', bottom: '24px', right: '24px', padding: '12px 24px',
@@ -118,35 +119,78 @@ export default function MyApplicationsPage() {
             `}</style>
 
             <PageContainer>
-                <div style={{ padding: '20px 16px' }}>
-                    <div className="hw-mb-32">
-                        <Button variant="ghost" onClick={() => router.push('/worker')} style={{ marginBottom: '16px', padding: '0', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B' }}>
-                            <FiArrowLeft size={16} /> <span style={{ fontSize: '14px', fontWeight: 600 }}>Back to Dashboard</span>
-                        </Button>
-                        <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <FiSend size={32} style={{ color: '#1C4DFF' }} /> My Applications
-                        </h1>
-                        <p className="text-body-md" style={{ color: '#64748B', marginTop: '8px' }}>
-                            Track the status of the gigs you've applied to.
+                <div style={{ padding: '24px 20px' }}>
+                    
+                    {/* Search & Filter Row */}
+                    <div style={{ marginBottom: '32px' }}>
+                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                            <FiSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                                type="text"
+                                className="hw-input"
+                                placeholder="Search by job title or hirer name..."
+                                style={{ paddingLeft: '48px', height: '52px', borderRadius: '16px' }}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="hw-urgent-scroll" style={{ padding: '4px 0' }}>
+                            {[
+                                { val: 'all', label: 'All' }, 
+                                { val: 'pending', label: 'Under Review' }, 
+                                { val: 'accepted', label: 'Accepted' }, 
+                                { val: 'rejected', label: 'Not Selected' }
+                            ].map((s) => (
+                                <Button
+                                    key={s.val}
+                                    variant={statusFilter === s.val ? "primary" : "ghost"}
+                                    size="sm"
+                                    className="hw-font-bold"
+                                    onClick={() => setStatusFilter(s.val)}
+                                    style={{ borderRadius: '12px', minWidth: '100px', whiteSpace: 'nowrap' }}
+                                >
+                                    {s.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '24px' }}>
+                        <p className="text-body-md" style={{ color: '#64748B', margin: 0 }}>
+                            {statusFilter === 'all' 
+                                ? `You have applied to ${filteredApplications.length} gigs total.` 
+                                : `Showing ${filteredApplications.length} applications ${statusFilter === 'pending' ? 'under review' : statusFilter === 'accepted' ? 'accepted' : 'not selected'}.`
+                            }
                         </p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {applications.length === 0 ? (
-                             <Card variant="border" padding="xl" className="hw-text-center">
-                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
-                                     <FiBriefcase size={24} />
-                                 </div>
-                                 <h3 className="text-title-md">No applications yet</h3>
-                                 <p className="text-body-md">You haven't applied to any gigs yet.</p>
-                             </Card>
+                        {filteredApplications.length === 0 ? (
+                            <Card variant="border" padding="xl" className="hw-text-center" style={{ borderRadius: '24px', borderStyle: 'dashed' }}>
+                                <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
+                                    <FiBriefcase size={24} />
+                                </div>
+                                <h3 className="text-title-md">No applications found</h3>
+                                <p className="text-body-md">
+                                    {searchTerm || statusFilter !== 'all' 
+                                        ? "Try adjusting your search or filters." 
+                                        : "You haven't applied to any gigs yet."
+                                    }
+                                </p>
+                                {(searchTerm || statusFilter !== 'all') && (
+                                    <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }} style={{ marginTop: '12px' }}>
+                                        Reset Filters
+                                    </Button>
+                                )}
+                            </Card>
                         ) : (
-                            applications.map(app => (
+                            filteredApplications.map(app => (
                                 <Card 
                                     key={app.id} 
                                     variant="elevated" 
                                     padding="lg" 
-                                    style={{ borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
+                                    style={{ borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.02)' }}
                                 >
                                     <div className="hw-flex hw-items-start hw-justify-between hw-gap-16">
                                         <div style={{ flex: 1 }}>

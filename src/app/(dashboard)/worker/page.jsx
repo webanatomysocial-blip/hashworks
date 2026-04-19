@@ -10,7 +10,7 @@ import "@/css/worker.css";
 
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
-import ActiveGigCard from "@/Components/worker/ActiveGigCard";
+import ActiveTaskBanner from "@/Components/common/ActiveTaskBanner";
 import SummaryStats from "@/Components/worker/SummaryStats";
 import UrgentJobsList from "@/Components/worker/UrgentJobsList";
 import LatestChatsList from "@/Components/worker/LatestChatsList";
@@ -131,10 +131,10 @@ export default function WorkerDashboardHome() {
 
   return (
     <div className="wh-dashboard">
-      <PageContainer>
+      <PageContainer style={{ paddingTop: '20px' }}>
 
         {/* Role Toggle */}
-        <div className="hw-role-toggle" style={{ marginTop: '20px' }}>
+        <div className="hw-role-toggle">
           <button 
             className={`hw-toggle-btn ${activeToggle === 'findWork' ? 'hw-toggle-btn--active' : ''}`} 
             onClick={() => setActiveToggle("findWork")}
@@ -150,28 +150,21 @@ export default function WorkerDashboardHome() {
         </div>
 
         {/* Greeting Section */}
-        <div className="hw-flex hw-justify-between hw-items-end hw-mb-32" style={{ padding: '0 16px' }}>
-            <div>
-                <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>WORKER HUB</p>
-                <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
-                    Hello, {profile?.first_name || 'Worker'}
-                </h1>
-            </div>
-            <Button 
-                variant="ghost" 
-                onClick={() => router.push('/worker/saved')}
-                className="hw-flex hw-items-center hw-gap-8"
-                style={{ color: 'var(--color-primary)', padding: '0 0 8px 0', height: 'auto' }}
-            >
-                <FiBookmark size={20} />
-                <span className="text-label-sm" style={{ fontWeight: 800 }}>WISHLIST</span>
-            </Button>
+        <div className="hw-mb-32" style={{ padding: '0 16px' }}>
+            <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>WORKER HUB</p>
+            <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
+                Hello, {profile?.first_name || 'Worker'}
+            </h1>
         </div>
 
         {/* Active Gig or CTA */}
         <div className="hw-section" style={{ padding: '0 16px' }}>
           {activeGig ? (
-            <ActiveGigCard gig={activeGig} onViewTask={() => router.push('/worker/active-gigs')} />
+            <ActiveTaskBanner 
+              contract={activeGig} 
+              role="worker"
+              onClick={() => router.push(`/messages?contract=${activeGig.id}`)} 
+            />
           ) : (
             <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center" style={{ borderRadius: '28px' }}>
               <div className="text-label-sm">Ready to Work</div>
@@ -229,11 +222,21 @@ export default function WorkerDashboardHome() {
           />
         </div>
 
-        {/* Discovery Stack */}
         <div className="hw-section" style={{ padding: '0 16px' }}>
           <div className="hw-mb-16">
-            <h2 className="text-headline-lg" style={{ fontWeight: 800 }}>Discover Your Next Gig</h2>
-            <p className="text-body-md hw-mt-2">Swipe cards to save or ignore</p>
+            <h2 className="text-headline-lg" style={{ fontWeight: 800, marginBottom: '4px' }}>Discover Your Next Gig</h2>
+            <div className="hw-flex hw-justify-between hw-items-center">
+              <p className="text-body-md" style={{ color: '#64748B' }}>Swipe cards to save or ignore</p>
+              <Button 
+                  variant="ghost" 
+                  onClick={() => router.push('/worker/saved')}
+                  className="hw-flex hw-items-center hw-gap-4"
+                  style={{ color: 'var(--wh-blue-primary)', padding: 0, height: 'auto' }}
+              >
+                  <FiBookmark size={18} />
+                  <span className="text-label-sm" style={{ fontWeight: 800, fontSize: '13px' }}>WISHLIST</span>
+              </Button>
+            </div>
           </div>
           <DiscoveryStack 
             jobs={recommendedJobs} 

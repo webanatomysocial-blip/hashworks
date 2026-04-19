@@ -5,18 +5,34 @@ import { Card } from '@/Components/ui/Card';
 export default function ActiveTaskBanner({ contract, role = 'worker', onClick }) {
     const router = useRouter();
     
+    // If no contract, we might still have a job (for hirer context)
+    // But for now let's stick to the convention: contract prop contains the core data
     if (!contract) return null;
 
-    const job = contract.jobs || {};
+    const job = contract.jobs || contract.job || contract; // Flexible fallback
     const otherPerson = role === 'worker' ? contract.hirer : contract.worker;
 
-    // Determine status badge based on progress or mock logic
-    const statusText = contract.status === 'active' ? 'In Progress' : 'Pending';
+    // Logic for Status and Metric
+    const statusText = contract.status === 'active' ? 'In Progress' : (contract.status || 'Active');
+    
+    // Role-specific Metrics
+    let metricLabel = "";
+    let metricValue = "";
 
-    // Mock ETA or task metric details for now, you can hook this up to actual data later
-    const metricLabel = "ETA:";
-    const metricValue = role === 'worker' ? "12" : "24"; 
-    const metricUnit = role === 'worker' ? "mins" : "hrs";
+    if (role === 'worker') {
+        metricLabel = "Earn:";
+        metricValue = job.budget_max ? `₹${job.budget_max.toLocaleString()}` : "Market Rate";
+    } else {
+        // Hirer side
+        if (otherPerson) {
+            metricLabel = "Hired:";
+            metricValue = otherPerson.first_name || "Pro";
+        } else {
+            metricLabel = "Apps:";
+            metricValue = job.application_count !== undefined ? job.application_count : "Pending";
+        }
+    }
+    const metricUnit = ""; 
 
     const bannerBackground = '#0B47F0'; // Deep blue background
     const lightBlueText = 'rgba(255, 255, 255, 0.6)'; // Faded blue for secondary text
@@ -24,8 +40,23 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
     const badgeColor = '#0F172A'; // Dark text for badge
     const buttonBg = '#2F65FF'; // Lighter blue for button
     
-    // Task description - truncate if necessary
-    const description = job.description || `Task with ${otherPerson?.first_name || 'user'}. Please ensure all guidelines are followed for successful completion.`;
+    // Description - contextual
+    let description = "";
+    if (role === 'worker') {
+        description = `You are working with ${otherPerson?.first_name || 'the hirer'} on this task. Follow instructions for successful completion.`;
+    } else {
+        description = otherPerson 
+            ? `Hired ${otherPerson.first_name || 'Worker'} for this task. Chat now to coordinate.`
+            : `Your post is live. Waiting for applications to be accepted.`;
+    }
+
+    const handleAction = (e) => {
+        if (onClick) {
+            onClick(e);
+        } else if (contract.id) {
+            router.push(`/messages?contract=${contract.id}`);
+        }
+    };
 
     return (
         <Card 
@@ -57,17 +88,17 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
                     gap: '6px'
                 }}>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: badgeColor }}></div>
-                    {statusText}
+                    {otherPerson ? 'Accepted' : statusText.toUpperCase()}
                 </div>
                 <div style={{ color: lightBlueText, fontSize: '15px', fontWeight: 600 }}>
-                    {job.title || 'Ongoing Gig'}
+                    {job.title || 'Ongoing Task'}
                 </div>
             </div>
 
-            {/* Metric Row (ETA) */}
+            {/* Metric Row */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <span style={{ fontSize: '42px', fontWeight: 800, lineHeight: 1 }}>{metricLabel} {metricValue}</span>
-                <span style={{ fontSize: '28px', color: lightBlueText, fontWeight: 700 }}>{metricUnit}</span>
+                <span style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1 }}>{metricLabel} {metricValue}</span>
+                {metricUnit && <span style={{ fontSize: '24px', color: lightBlueText, fontWeight: 700 }}>{metricUnit}</span>}
             </div>
 
             {/* Description / Instructions */}
@@ -84,7 +115,7 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
             {/* Action Button */}
             <div style={{ marginTop: '8px' }}>
                 <button 
-                    onClick={onClick || (() => router.push(`/messages?contract=${contract.id}`))}
+                    onClick={handleAction}
                     style={{ 
                         background: buttonBg, 
                         color: 'white', 
@@ -97,7 +128,7 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
                         transition: 'background 0.2s'
                     }}
                 >
-                    {role === 'worker' ? 'View Task' : 'Track Progress'}
+                    {otherPerson ? 'Open Chat' : 'View Applicants'}
                 </button>
             </div>
         </Card>

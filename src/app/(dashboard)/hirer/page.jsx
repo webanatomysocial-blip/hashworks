@@ -81,7 +81,7 @@ export default function HirerDashboard() {
             /* contracts - Most recent active one */
             const { data: conData } = await supabase
                 .from('contracts')
-                .select('*, jobs(title, urgency), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url, average_rating)')
+                .select('*, jobs(id, title, urgency, budget_max, city, status), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url, average_rating)')
                 .eq('hirer_id', user.id)
                 .eq('status', 'active')
                 .order('created_at', { ascending: false });
@@ -134,11 +134,13 @@ export default function HirerDashboard() {
     if (loading) return <HashLoader text="" />;
 
     const mostRecentContract = contracts[0];
+    const latestJob = jobs[0]; 
+    const bannerTarget = mostRecentContract || latestJob;
     const pendingApps = applications.filter(a => a.status === 'pending').length;
 
     return (
         <div className="wh-dashboard">
-            <PageContainer>
+            <PageContainer style={{ paddingTop: '20px' }}>
                 {/* Role Toggle */}
                 <div className="hw-role-toggle" style={{ marginTop: '20px' }}>
                     <button 
@@ -163,13 +165,19 @@ export default function HirerDashboard() {
                     </h1>
                 </div>
 
-                {/* Most Recent Active Task (Primary Card) */}
+                {/* Top Banner: Most Recent Post or Active Contract */}
                 <div className="hw-section" style={{ padding: '0 16px' }}>
-                    {mostRecentContract ? (
+                    {bannerTarget ? (
                         <ActiveTaskBanner 
-                            contract={mostRecentContract} 
+                            contract={bannerTarget} 
                             role="hirer"
-                            onClick={() => router.push(`/messages?contract=${mostRecentContract.id}`)}
+                            onClick={() => {
+                                if (bannerTarget.contracts || bannerTarget.worker) {
+                                     router.push(`/messages?contract=${bannerTarget.id}`);
+                                } else {
+                                     router.push(`/hirer/postings/view?id=${bannerTarget.id}`);
+                                }
+                            }}
                         />
                     ) : (
                         <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center">
@@ -200,25 +208,25 @@ export default function HirerDashboard() {
                 {/* Stats Grid */}
                 <div className="hw-section" style={{ padding: '0 16px' }}>
                     <div className="hw-grid-2">
-                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/postings')} style={{ borderRadius: '20px' }}>
-                            <div className="hw-flex hw-justify-between hw-items-center">
-                                <div>
-                                    <span className="text-label-sm hw-mb-4 hw-display-block" style={{ color: '#64748B' }}>Active Postings</span>
-                                    <div className="text-display-xl hw-text-32" style={{ fontWeight: 800 }}>{jobs.length}</div>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/postings')} style={{ borderRadius: '24px' }}>
+                            <div className="hw-flex hw-flex-col">
+                                <div className="hw-icon-box-primary hw-mb-16" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
+                                    <FiBriefcase size={22} />
                                 </div>
-                                <div className="hw-icon-box-sm hw-icon-box-primary">
-                                    <FiBriefcase size={20} />
+                                <div className="hw-flex hw-justify-between hw-items-end">
+                                    <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Active Postings</span>
+                                    <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{jobs.length}</div>
                                 </div>
                             </div>
                         </Card>
-                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/applications')} style={{ borderRadius: '20px' }}>
-                            <div className="hw-flex hw-justify-between hw-items-center">
-                                <div>
-                                    <span className="text-label-sm hw-mb-4 hw-display-block" style={{ color: '#64748B' }}>Pending Review</span>
-                                    <div className="text-display-xl hw-text-32" style={{ fontWeight: 800 }}>{pendingApps}</div>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/applications')} style={{ borderRadius: '24px' }}>
+                            <div className="hw-flex hw-flex-col">
+                                <div className="hw-icon-box-success hw-mb-16" style={{ background: '#c7f284', color: '#0F172A', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
+                                    <FiUsers size={22} />
                                 </div>
-                                <div className="hw-icon-box-sm hw-icon-box-success" style={{ background: '#c7f284', color: '#0F172A' }}>
-                                    <FiUsers size={20} />
+                                <div className="hw-flex hw-justify-between hw-items-end">
+                                    <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pending Review</span>
+                                    <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{pendingApps}</div>
                                 </div>
                             </div>
                         </Card>
