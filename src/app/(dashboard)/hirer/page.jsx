@@ -62,6 +62,9 @@ export default function HirerDashboard() {
                 .from('jobs')
                 .select('*, application_count:applications(count)')
                 .eq('hirer_id', user.id)
+                .neq('status', 'completed')
+                .neq('status', 'cancelled')
+                .neq('status', 'closed')
                 .order('created_at', { ascending: false });
             
             // Clean application_count from the join
@@ -110,11 +113,13 @@ export default function HirerDashboard() {
             const seen = new Set();
             const deduped = [];
             for (const msg of (chatsData || [])) {
-                const cid = msg.contract?.id;
-                if (cid && !seen.has(cid)) {
-                    seen.add(cid);
-                    const isWorker = msg.contract?.worker?.id === user.id;
-                    deduped.push({ ...msg, otherPerson: isWorker ? msg.contract?.hirer : msg.contract?.worker });
+                const otherPerson = msg.contract?.worker?.id === user.id 
+                    ? msg.contract?.hirer 
+                    : msg.contract?.worker;
+                
+                if (otherPerson?.id && !seen.has(otherPerson.id)) {
+                    seen.add(otherPerson.id);
+                    deduped.push({ ...msg, otherPerson });
                     if (deduped.length >= 5) break;
                 }
             }
@@ -129,12 +134,26 @@ export default function HirerDashboard() {
 
     useEffect(() => {
         fetchAll();
-    }, [fetchAll]);
+
+        // ── Realtime Listener for Jobs ──
+        // This ensures that when a job is marked 'completed' in HirerContract,
+        // it disappears from this dashboard immediately without a manual refresh.
+        const jobsChannel = supabase
+            .channel('hirer_dashboard_jobs')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs', filter: `hirer_id=eq.${userId}` }, () => {
+                fetchAll();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(jobsChannel);
+        };
+    }, [fetchAll, userId]);
 
     if (loading) return <HashLoader text="" />;
 
     const mostRecentContract = contracts[0];
-    const latestJob = jobs[0]; 
+    const latestJob = jobs.find(j => j.status === 'active'); 
     const bannerTarget = mostRecentContract || latestJob;
     const pendingApps = applications.filter(a => a.status === 'pending').length;
 
@@ -159,8 +178,8 @@ export default function HirerDashboard() {
 
                 {/* Greeting Section */}
                 <div className="hw-mb-32" style={{ padding: '0 16px' }}>
-                    <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>RECRUITER HUB</p>
-                    <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
+                    <p className="sub-para-text" style={{ fontWeight: 500, letterSpacing: '2px', marginBottom: '8px', textTransform: 'uppercase' }}>RECRUITER HUB</p>
+                    <h1 className="big-text-head" >
                         Hello, {profile?.first_name || 'Hirer'}
                     </h1>
                 </div>
@@ -181,9 +200,9 @@ export default function HirerDashboard() {
                         />
                     ) : (
                         <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center">
-                            <div className="text-label-sm">Get Things Done</div>
-                            <h1 className="text-headline-lg">No Ongoing Tasks</h1>
-                            <p className="text-body-md hw-mt-4">
+                            <div className="sub-para-text" style={{ textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>Get Things Done</div>
+                            <h1 className="head-text">No Ongoing Tasks</h1>
+                            <p className="para-text hw-mt-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                                 Post a new task and find top-rated workers in minutes.
                             </p>
                             <button 
@@ -207,27 +226,38 @@ export default function HirerDashboard() {
 
                 {/* Stats Grid */}
                 <div className="hw-section" style={{ padding: '0 16px' }}>
-                    <div className="hw-grid-2">
-                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/postings')} style={{ borderRadius: '24px' }}>
+                    <div className="hw-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/postings?tab=Active')} style={{ borderRadius: '24px' }}>
                             <div className="hw-flex hw-flex-col">
                                 <div className="hw-icon-box-primary hw-mb-16" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
                                     <FiBriefcase size={22} />
                                 </div>
                                 <div className="hw-flex hw-justify-between hw-items-end">
-                                    <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Active Postings</span>
-                                    <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{jobs.length}</div>
+                                    <span className="sub-para-text" style={{ fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Active</span>
+                                    <div className="big-text-head" style={{ lineHeight: 0.8, color: '#0F172A', fontSize: '24px' }}>{jobs.length}</div>
                                 </div>
                             </div>
                         </Card>
-                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/applications')} style={{ borderRadius: '24px' }}>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/applications?tab=pending')} style={{ borderRadius: '24px' }}>
                             <div className="hw-flex hw-flex-col">
                                 <div className="hw-icon-box-success hw-mb-16" style={{ background: '#c7f284', color: '#0F172A', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
                                     <FiUsers size={22} />
                                 </div>
                                 <div className="hw-flex hw-justify-between hw-items-end">
-                                    <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pending Review</span>
-                                    <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{pendingApps}</div>
+                                    <span className="sub-para-text" style={{ fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Pending</span>
+                                    <div className="big-text-head" style={{ lineHeight: 0.8, color: '#0F172A', fontSize: '24px' }}>{pendingApps}</div>
                                 </div>
+                            </div>
+                        </Card>
+                        <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={() => router.push('/hirer/portfolio')} style={{ borderRadius: '24px', gridColumn: 'span 2' }}>
+                            <div className="hw-flex hw-justify-between hw-items-center">
+                                <div className="hw-flex hw-items-center hw-gap-16">
+                                    <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', background: 'var(--hw-surface-high)', color: 'var(--hw-primary)', flexShrink: 0 }}>
+                                        <FiActivity size={22} />
+                                    </div>
+                                    <span className="sub-para-text" style={{ fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Previous Works</span>
+                                </div>
+                                <div className="big-text-head" style={{ color: '#0F172A', fontSize: '24px' }}>{stats.hirer.past_works_count || 0}</div>
                             </div>
                         </Card>
                     </div>
@@ -237,8 +267,8 @@ export default function HirerDashboard() {
                 {savedTalent.length > 0 && (
                     <div className="hw-section" style={{ padding: '0 16px' }}>
                         <div className="hw-flex hw-justify-between hw-items-center hw-mb-16">
-                            <h2 className="text-headline-lg" style={{ fontWeight: 800 }}>Top Rated Talent</h2>
-                            <Link href="/hirer/talent" className="text-label-sm" style={{ color: 'var(--hw-primary)', fontWeight: 800 }}>View All</Link>
+                            <h2 className="head-text" style={{ fontWeight: 500 }}>Top Rated Talent</h2>
+                            <Link href="/hirer/talent" className="sub-para-text" style={{ color: 'var(--hw-primary)', fontWeight: 500 }}>View All</Link>
                         </div>
                         <div className="hw-urgent-scroll">
                             {savedTalent.map(talent => (
@@ -257,8 +287,8 @@ export default function HirerDashboard() {
                                             (talent.worker.first_name?.[0] || 'W').toUpperCase()
                                         )}
                                     </div>
-                                    <h4 className="text-title-md" style={{ fontSize: '15px', fontWeight: 800 }}>{talent.worker.first_name || 'Talent'}</h4>
-                                    <p className="text-label-sm" style={{ color: '#1C4DFF', fontSize: '11px', fontWeight: 900, marginTop: '4px' }}>
+                                    <h4 className="sub-head-text" style={{ fontSize: '15px', fontWeight: 500 }}>{talent.worker.first_name || 'Talent'}</h4>
+                                    <p className="sub-para-text" style={{ color: '#1C4DFF', fontSize: '11px', fontWeight: 500, marginTop: '4px' }}>
                                         ★ {Number(talent.worker.average_rating || 5.0).toFixed(1)}
                                     </p>
                                 </Card>

@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { FiTrash2, FiMapPin, FiDollarSign, FiZap } from "react-icons/fi";
+import { FiTrash2, FiMapPin, FiZap } from "react-icons/fi";
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { Button } from "@/Components/ui/Button";
+import { JobCard } from "@/Components/ui/JobCard";
 import HashLoader from "@/Components/common/HashLoader";
 import SectionHeader from "@/Components/common/SectionHeader";
 import "@/css/worker.css";
@@ -75,6 +76,12 @@ export default function SavedJobsPage() {
     }
   };
 
+  const handleDelete = async (jobId) => {
+    if (window.confirm("Are you sure you want to remove this task from your wishlist?")) {
+      await removeJob(jobId);
+    }
+  };
+
   const applyToJob = async (jobId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -112,8 +119,8 @@ export default function SavedJobsPage() {
 
         {savedJobs.length === 0 ? (
           <Card variant="flat" padding="xl" className="hw-text-center">
-            <h2 className="text-headline-md">Your wishlist is empty</h2>
-            <p className="text-body-md hw-mt-8 hw-opacity-60">Jobs you favorite will appear here.</p>
+            <h2 className="sub-head-text">Your wishlist is empty</h2>
+            <p className="para-text hw-mt-8 hw-opacity-60">Jobs you favorite will appear here.</p>
             <Button variant="primary" className="hw-mt-24" onClick={() => router.push('/worker')}>
               Discover Gigs
             </Button>
@@ -121,57 +128,13 @@ export default function SavedJobsPage() {
         ) : (
           <div className="hw-flex hw-flex-col hw-gap-16">
             {savedJobs.map(({ jobs: job }) => (
-              <Card 
-                key={job.id} 
-                variant="elevated" 
-                padding="md" 
-                className="hw-card-interactive"
-                onClick={() => router.push(`/worker/browse/detail?id=${job.id}`)}
-                style={{ borderRadius: '24px' }}
-              >
-                <div className="hw-flex hw-items-center hw-gap-16">
-                   {job.reference_image_url ? (
-                     <div style={{ width: 80, height: 80, borderRadius: '18px', overflow: 'hidden', flexShrink: 0 }}>
-                       <img src={job.reference_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                     </div>
-                   ) : (
-                     <div className="hw-icon-box" style={{ width: 80, height: 80, flexShrink: 0, borderRadius: '18px' }}>
-                       <FiDollarSign size={24} />
-                     </div>
-                   )}
-                  
-                  <div className="hw-flex-1">
-                    <h3 className="text-title-md" style={{ color: '#0F172A', fontWeight: 800 }}>{job.title}</h3>
-                    <div className="hw-flex hw-items-center hw-gap-12 hw-mt-4 hw-opacity-80">
-                      <span className="text-label-sm hw-flex hw-items-center hw-gap-4">
-                        <FiMapPin color="var(--color-primary)" /> {job.city || 'Nearby'}
-                      </span>
-                      <span className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: '#10B981', fontWeight: 900 }}>
-                        ₹{job.budget_max?.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="hw-flex hw-items-center hw-gap-8">
-                    <Button 
-                      variant="primary" 
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); applyToJob(job.id); }}
-                      style={{ borderRadius: '12px', padding: '8px 16px', height: '40px' }}
-                    >
-                      <FiZap size={14} style={{ marginRight: '4px' }} /> Apply
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); removeJob(job.id); }}
-                      style={{ color: '#ff4d4d', padding: '8px', minWidth: '40px' }}
-                    >
-                      <FiTrash2 size={20} />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              <JobCard 
+                key={job.id}
+                job={job}
+                onViewDetails={(id) => router.push(`/worker/browse/detail?id=${id}`)}
+                onApply={applyToJob}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}

@@ -79,6 +79,9 @@ export default function DashboardLayout({ children }) {
     "/hirer/profile",
     "/worker/workercontract",
     "/hirer/hirercontract",
+    "/worker/portfolio",
+    "/hirer/portfolio",
+    "/profile/reviews",
   ].some(path => pathname === path || pathname?.startsWith(path + "/"));
 
   if (loading) {

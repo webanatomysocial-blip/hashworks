@@ -46,13 +46,18 @@ export default function WorkerDashboardHome() {
         .select(`*, jobs(*), hirer:profiles!contracts_hirer_id_fkey(first_name, last_name, avatar_url)`)
         .eq("worker_id", user.id).eq("status", "active")
         .order("created_at", { ascending: false }).limit(1);
-      if (contractsData?.[0]) setActiveGig(contractsData[0]);
+      if (contractsData?.[0]) {
+        setActiveGig(contractsData[0]);
+      } else {
+        setActiveGig(null);
+      }
 
       // Urgent jobs
       const { data: urgentData } = await supabase
         .from("jobs")
-        .select("id, title, description, budget_min, budget_max, city, subcity, urgency, role_type, location_type, created_at, estimated_minutes, latitude, longitude")
-        .in("urgency", ["immediate", "high"]).eq("status", "active")
+        .select("id, title, description, budget_min, budget_max, city, subcity, urgency, role_type, location_type, created_at, estimated_minutes, latitude, longitude, reference_image_url")
+        .eq("urgency", "immediate").eq("status", "active")
+        .neq("hirer_id", user.id)
         .order("created_at", { ascending: false }).limit(8);
         
       const urgentWithDistance = (urgentData || []).map(job => {
@@ -78,6 +83,7 @@ export default function WorkerDashboardHome() {
         .from("jobs")
         .select("*, profiles!jobs_hirer_id_fkey(first_name, last_name, avatar_url)")
         .eq("status", "active")
+        .neq("hirer_id", user.id)
         .gte("start_date", new Date().toISOString().split('T')[0]); 
       
       if (seenJobIds.length > 0) {
@@ -111,11 +117,13 @@ export default function WorkerDashboardHome() {
       const seen = new Set();
       const deduped = [];
       for (const msg of (chatsData || [])) {
-        const cid = msg.contract?.id;
-        if (cid && !seen.has(cid)) {
-          seen.add(cid);
-          const isWorker = msg.contract?.worker?.id === user.id;
-          deduped.push({ ...msg, otherPerson: isWorker ? msg.contract?.hirer : msg.contract?.worker });
+        const otherPerson = msg.contract?.worker?.id === user.id 
+          ? msg.contract?.hirer 
+          : msg.contract?.worker;
+          
+        if (otherPerson?.id && !seen.has(otherPerson.id)) {
+          seen.add(otherPerson.id);
+          deduped.push({ ...msg, otherPerson });
           if (deduped.length >= 5) break;
         }
       }
@@ -125,7 +133,21 @@ export default function WorkerDashboardHome() {
     finally { setLoading(false); }
   }, [router]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData(); 
+
+    // ── Realtime Listener for Contracts ──
+    const contractsChannel = supabase
+      .channel('worker_dashboard_contracts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(contractsChannel);
+    };
+  }, [fetchData]);
 
   if (loading) return <HashLoader text="" />;
 
@@ -151,8 +173,8 @@ export default function WorkerDashboardHome() {
 
         {/* Greeting Section */}
         <div className="hw-mb-32" style={{ padding: '0 16px' }}>
-            <p className="text-label-sm" style={{ color: '#64748B', fontWeight: 700, letterSpacing: '2px', marginBottom: '8px' }}>WORKER HUB</p>
-            <h1 className="text-display-xl" style={{ fontSize: '38px', fontWeight: 900, color: '#0F172A', letterSpacing: '-1.5px' }}>
+            <p className="sub-para-text" style={{ fontWeight: 500, letterSpacing: '2px', marginBottom: '8px', textTransform: 'uppercase' }}>WORKER HUB</p>
+            <h1 className="big-text-head" style={{ fontWeight: 500, color: '#0F172A', letterSpacing: '-1.5px' }}>
                 Hello, {profile?.first_name || 'Worker'}
             </h1>
         </div>
@@ -167,9 +189,9 @@ export default function WorkerDashboardHome() {
             />
           ) : (
             <Card variant="elevated" padding="lg" className="hw-card-primary hw-text-center" style={{ borderRadius: '28px' }}>
-              <div className="text-label-sm">Ready to Work</div>
-              <h1 className="text-headline-lg">No Active Gigs</h1>
-              <p className="text-body-md hw-mt-4">
+              <div className="sub-para-text" style={{ textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>Ready to Work</div>
+              <h1 className="head-text">No Active Gigs</h1>
+              <p className="para-text hw-mt-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Browse available opportunities nearby to start earning today.
               </p>
               <button 
@@ -205,8 +227,8 @@ export default function WorkerDashboardHome() {
                 <FiSearch size={22} />
               </div>
               <div className="hw-flex-1">
-                <h3 className="text-title-md" style={{ fontWeight: 800 }}>Explore All Nearby Gigs</h3>
-                <p className="text-body-md hw-mt-2">Find more opportunities to increase your earnings.</p>
+                <h3 className="sub-head-text" style={{ fontWeight: 500 }}>Explore All Nearby Gigs</h3>
+                <p className="para-text hw-mt-2">Find more opportunities to increase your earnings.</p>
               </div>
             </div>
           </Card>
@@ -217,16 +239,18 @@ export default function WorkerDashboardHome() {
           <SummaryStats
             activeCount={stats.worker.active_gigs}
             acceptedCount={stats.worker.total_applications}
+            pastWorksCount={stats.worker.past_works_count}
             onActiveClick={() => router.push('/worker/active-gigs')}
-            onApplicationsClick={() => router.push('/worker/applications')}
+            onApplicationsClick={() => router.push('/worker/applications?tab=all')}
+            onPortfolioClick={() => router.push('/worker/portfolio')}
           />
         </div>
 
         <div className="hw-section" style={{ padding: '0 16px' }}>
           <div className="hw-mb-16">
-            <h2 className="text-headline-lg" style={{ fontWeight: 800, marginBottom: '4px' }}>Discover Your Next Gig</h2>
+            <h2 className="head-text" style={{ fontWeight: 500, marginBottom: '4px' }}>Discover Your Next Gig</h2>
             <div className="hw-flex hw-justify-between hw-items-center">
-              <p className="text-body-md" style={{ color: '#64748B' }}>Swipe cards to save or ignore</p>
+              <p className="para-text" style={{ color: '#64748B' }}>Swipe cards to save or ignore</p>
               <Button 
                   variant="ghost" 
                   onClick={() => router.push('/worker/saved')}
@@ -234,7 +258,7 @@ export default function WorkerDashboardHome() {
                   style={{ color: 'var(--wh-blue-primary)', padding: 0, height: 'auto' }}
               >
                   <FiBookmark size={18} />
-                  <span className="text-label-sm" style={{ fontWeight: 800, fontSize: '13px' }}>WISHLIST</span>
+                  <span className="sub-para-text" style={{ fontWeight: 500, fontSize: '13px', textTransform: 'uppercase' }}>WISHLIST</span>
               </Button>
             </div>
           </div>

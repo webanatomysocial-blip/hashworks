@@ -1,16 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { FiXCircle, FiBriefcase, FiClock, FiSearch } from 'react-icons/fi';
+import HashLoader from '@/Components/common/HashLoader';
+import SectionHeader from '@/Components/common/SectionHeader';
+import { Suspense } from 'react';
+import { PageContainer } from '@/Components/layouts/PageContainer';
+import { Button } from '@/Components/ui/Button';
+import { Card } from '@/Components/ui/Card';
+import { Badge } from '@/Components/ui/Badge';
+import "@/css/worker.css";
 
-export default function MyApplicationsPage() {
+function MyApplicationsContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState(searchParams.get('tab') || 'all');
     const [toast, setToast] = useState(null);
 
     const showToast = (message, type = 'success') => {
@@ -27,8 +36,9 @@ export default function MyApplicationsPage() {
 
                 const { data, error } = await supabase
                     .from('applications')
-                    .select('*, jobs(*, profiles!jobs_hirer_id_fkey(first_name, last_name))')
+                    .select('*, jobs!inner(*, profiles!jobs_hirer_id_fkey(first_name, last_name))')
                     .eq('worker_id', user.id)
+                    .neq('jobs.status', 'completed')
                     .order('created_at', { ascending: false });
 
                 if (error) {
@@ -84,10 +94,13 @@ export default function MyApplicationsPage() {
 
     const filteredApplications = applications.filter(app => {
         const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
-        const matchesSearch = 
+        
+        // If no searchTerm, show everything. If there's a searchTerm, check title and names safely.
+        const matchesSearch = !searchTerm || (
             (app.jobs?.title?.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (app.jobs?.profiles?.first_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (app.jobs?.profiles?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+            (app.jobs?.profiles?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
         
         return matchesStatus && matchesSearch;
     });
@@ -123,41 +136,38 @@ export default function MyApplicationsPage() {
                     
                     {/* Search & Filter Row */}
                     <div style={{ marginBottom: '32px' }}>
-                        <div style={{ position: 'relative', marginBottom: '16px' }}>
-                            <FiSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <div className="mp-search-container" style={{ marginBottom: '16px' }}>
+                            <FiSearch className="mp-search-icon" />
                             <input
                                 type="text"
-                                className="hw-input"
+                                className="mp-search-input"
                                 placeholder="Search by job title or hirer name..."
-                                style={{ paddingLeft: '48px', height: '52px', borderRadius: '16px' }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
 
-                        <div className="hw-urgent-scroll" style={{ padding: '4px 0' }}>
-                            {[
-                                { val: 'all', label: 'All' }, 
-                                { val: 'pending', label: 'Under Review' }, 
-                                { val: 'accepted', label: 'Accepted' }, 
-                                { val: 'rejected', label: 'Not Selected' }
-                            ].map((s) => (
-                                <Button
-                                    key={s.val}
-                                    variant={statusFilter === s.val ? "primary" : "ghost"}
-                                    size="sm"
-                                    className="hw-font-bold"
-                                    onClick={() => setStatusFilter(s.val)}
-                                    style={{ borderRadius: '12px', minWidth: '100px', whiteSpace: 'nowrap' }}
-                                >
-                                    {s.label}
-                                </Button>
-                            ))}
-                        </div>
+                    <div className="mp-tabs" style={{ marginBottom: '0', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        {[
+                            { val: 'all', label: 'All' }, 
+                            { val: 'pending', label: 'Under Review' }, 
+                            { val: 'accepted', label: 'Accepted' }, 
+                            { val: 'rejected', label: 'Not Selected' }
+                        ].map((s) => (
+                            <button
+                                key={s.val}
+                                className={`mp-tab ${statusFilter === s.val ? 'active' : ''}`}
+                                onClick={() => setStatusFilter(s.val)}
+                                style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
                     </div>
 
                     <div style={{ marginBottom: '24px' }}>
-                        <p className="text-body-md" style={{ color: '#64748B', margin: 0 }}>
+                        <p className="para-text" style={{ color: '#64748B', margin: 0 }}>
                             {statusFilter === 'all' 
                                 ? `You have applied to ${filteredApplications.length} gigs total.` 
                                 : `Showing ${filteredApplications.length} applications ${statusFilter === 'pending' ? 'under review' : statusFilter === 'accepted' ? 'accepted' : 'not selected'}.`
@@ -167,12 +177,12 @@ export default function MyApplicationsPage() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {filteredApplications.length === 0 ? (
-                            <Card variant="border" padding="xl" className="hw-text-center" style={{ borderRadius: '24px', borderStyle: 'dashed' }}>
-                                <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
+                            <Card variant="elevated" padding="xl" className="hw-text-center" style={{ borderRadius: '24px' }}>
+                                <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B', borderRadius: '16px', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <FiBriefcase size={24} />
                                 </div>
-                                <h3 className="text-title-md">No applications found</h3>
-                                <p className="text-body-md">
+                                <h3 className="sub-head-text">No applications found</h3>
+                                <p className="para-text">
                                     {searchTerm || statusFilter !== 'all' 
                                         ? "Try adjusting your search or filters." 
                                         : "You haven't applied to any gigs yet."
@@ -195,20 +205,20 @@ export default function MyApplicationsPage() {
                                     <div className="hw-flex hw-items-start hw-justify-between hw-gap-16">
                                         <div style={{ flex: 1 }}>
                                             <div className="hw-flex hw-justify-between hw-items-start hw-mb-4">
-                                                <h4 className="text-title-md" style={{ fontWeight: 800, fontSize: '18px', margin: 0 }}>
+                                                <h4 className="sub-head-text" style={{ fontWeight: 500, margin: 0 }}>
                                                     {app.jobs?.title || 'Untitled Role'}
                                                 </h4>
                                                 <Badge variant={app.status === 'accepted' ? 'success' : app.status === 'rejected' ? 'urgent' : 'waiting'}>
-                                                    {getStatusText(app.status).toUpperCase()}
+                                                    {getStatusText(app.status)}
                                                 </Badge>
                                             </div>
-                                            <p className="text-body-md" style={{ fontSize: '14px', color: '#64748B', marginBottom: '8px' }}>
-                                                Hirer: <span style={{ color: '#1C4DFF', fontWeight: 700 }}>{app.jobs?.profiles?.first_name} {app.jobs?.profiles?.last_name || ''}</span>
+                                            <p className="para-text" style={{ fontSize: '14px', color: '#64748B', marginBottom: '8px' }}>
+                                                Hirer: <span style={{ color: '#1C4DFF', fontWeight: 500 }}>{app.jobs?.profiles?.first_name} {app.jobs?.profiles?.last_name || ''}</span>
                                                 <span style={{ margin: '0 8px', color: '#cbd5e1' }}>•</span>
-                                                <span style={{ fontWeight: 700, color: '#0F172A' }}>₹{app.jobs?.budget ? app.jobs.budget.toLocaleString() : 'N/A'}</span>
+                                                <span style={{ fontWeight: 500, color: '#0F172A' }}>₹{app.jobs?.budget ? app.jobs.budget.toLocaleString() : 'N/A'}</span>
                                             </p>
                                             <div className="hw-flex hw-items-center hw-justify-between">
-                                                <span className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: '#94a3b8' }}>
+                                                <span className="sub-para-text hw-flex hw-items-center hw-gap-4" style={{ color: '#94a3b8' }}>
                                                     <FiClock size={14} /> Applied on {formatDate(app.created_at)}
                                                 </span>
                                                 {app.status === 'pending' && (
@@ -226,5 +236,13 @@ export default function MyApplicationsPage() {
                 </div>
             </PageContainer>
         </div>
+    );
+}
+
+export default function MyApplicationsPage() {
+    return (
+        <Suspense fallback={<HashLoader text="" />}>
+            <MyApplicationsContent />
+        </Suspense>
     );
 }

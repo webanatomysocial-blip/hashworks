@@ -11,6 +11,26 @@ import { Card } from "@/Components/ui/Card";
 import { Button } from "@/Components/ui/Button";
 import { Badge } from "@/Components/ui/Badge";
 import '@/css/profile.css';
+import ConfirmModal from '@/Components/common/ConfirmModal';
+
+function calculateCompleteness(profile, mySkills, myEducation, availability) {
+    let score = 0;
+    if (profile.first_name) score += 10;
+    if (profile.last_name) score += 5;
+    if (profile.username) score += 5;
+    if (profile.bio) score += 20;
+    if (profile.headline) score += 10;
+    if (profile.phone) score += 5;
+    if (profile.country) score += 5;
+
+    // Relational
+    if (mySkills.length > 0) score += 20;
+    if (myEducation.length > 0) score += 10;
+    if (availability.preferred_role_type) score += 10;
+    if (profile.resume_path) score += 10;
+
+    return Math.min(score, 100);
+}
 
 export default function WorkerProfilePage() {
     const router = useRouter();
@@ -50,6 +70,16 @@ export default function WorkerProfilePage() {
     const [editingEduId, setEditingEduId] = useState(null);
     const [isAddingSkill, setIsAddingSkill] = useState(false);
     const [isEditingAvail, setIsEditingAvail] = useState(false);
+
+    // Confirm Modal State
+    const [confirmConfig, setConfirmConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        variant: 'destructive',
+        loading: false
+    });
 
     const [eduForm, setEduForm] = useState({
         institution: '',
@@ -291,18 +321,29 @@ export default function WorkerProfilePage() {
     };
 
     const handleEduDelete = async (eduId) => {
-        if (!confirm("Are you sure you want to delete this education entry?")) return;
-        try {
-            const { error } = await supabase
-                .from('worker_education')
-                .delete()
-                .eq('id', eduId);
-            if (error) throw error;
-            fetchData();
-        } catch (error) {
-            console.error('Error deleting education:', error);
-            alert("Failed to delete education.");
-        }
+        setConfirmConfig({
+            isOpen: true,
+            title: "Delete Entry?",
+            message: "Are you sure you want to delete this education entry? This cannot be undone.",
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, loading: true }));
+                try {
+                    const { error } = await supabase
+                        .from('worker_education')
+                        .delete()
+                        .eq('id', eduId);
+                    if (error) throw error;
+                    fetchData();
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    console.error('Error deleting education:', error);
+                    alert("Failed to delete education.");
+                } finally {
+                    setConfirmConfig(prev => ({ ...prev, loading: false }));
+                }
+            }
+        });
     };
 
     const handleEduEdit = (edu) => {
@@ -339,34 +380,39 @@ export default function WorkerProfilePage() {
     };
 
     const handleDeleteAccount = async () => {
-        if (!confirm("This will hide your profile and applications from everyone.")) return;
+        setConfirmConfig({
+            isOpen: true,
+            title: "Deactivate Account?",
+            message: "This will hide your profile and applications from everyone. Are you sure you want to proceed?",
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, loading: true }));
+                try {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            is_deleted: true,
+                            deleted_at: new Date().toISOString()
+                        })
+                        .eq('id', user.id);
 
-        setSaving(true);
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    is_deleted: true,
-                    deleted_at: new Date().toISOString()
-                })
-                .eq('id', user.id);
+                    if (error) throw error;
 
-            if (error) throw error;
-
-            alert("Account deleted successfully.");
-            await supabase.auth.signOut();
-            router.push('/');
-        } catch (error) {
-            console.error('Error deleting account:', error);
-            alert(`Failed to delete account: ${error.message}`);
-        } finally {
-            setSaving(false);
-        }
+                    await supabase.auth.signOut();
+                    router.push('/');
+                } catch (error) {
+                    console.error('Error deleting account:', error);
+                    alert(`Failed to delete account: ${error.message}`);
+                } finally {
+                    setConfirmConfig(prev => ({ ...prev, loading: false, isOpen: false }));
+                }
+            }
+        });
     };
 
     if (loading) return <HashLoader text="" />;
 
-    const completeness = calculateCompleteness();
+    const completeness = calculateCompleteness(profile, mySkills, myEducation, availability);
 
     return (
         <div className="profile-dashboard" style={{ padding: 0 }}>
@@ -411,10 +457,10 @@ export default function WorkerProfilePage() {
                             <div className="profile-status-dot"></div>
                         </div>
                     </div>
-                    <h1 className="text-display-lg" style={{ color: '#0F172A', marginBottom: '8px' }}>
+                    <h1 className="head-text" style={{ color: '#0F172A', marginBottom: '8px' }}>
                         {profile.first_name} {profile.last_name}
                     </h1>
-                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>
+                    <p className="para-text" style={{ color: 'var(--hw-text-secondary)' }}>
                         {profile.headline || 'Professional Freelancer'}
                     </p>
                 </div>
@@ -427,7 +473,7 @@ export default function WorkerProfilePage() {
                     {/* BASE INFO CARD */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-32)' }}>
-                            <h2 className="text-headline-md">Identity Details</h2>
+                            <h2 className="sub-head-text">Identity Details</h2>
                             {!isEditingBase ? (
                                 <Button variant="ghost" size="sm" onClick={() => setIsEditingBase(true)}>
                                     <FiEdit2 /> Edit Profile
@@ -447,22 +493,22 @@ export default function WorkerProfilePage() {
                                 <div className="info-display">
                                     <div className="hw-info-grid">
                                         <div className="hw-info-item">
-                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Username</label>
-                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.username || '@notset'}</p>
+                                            <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block' }}>Username</label>
+                                            <p className="para-text" style={{ color: 'var(--hw-text-primary)' }}>{profile.username || '@notset'}</p>
                                         </div>
                                         <div className="hw-info-item">
-                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Phone</label>
-                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.phone || 'Not set'}</p>
+                                            <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block' }}>Phone</label>
+                                            <p className="para-text" style={{ color: 'var(--hw-text-primary)' }}>{profile.phone || 'Not set'}</p>
                                         </div>
                                         <div className="hw-info-item">
-                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Country</label>
-                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.country || 'Not set'}</p>
+                                            <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block' }}>Country</label>
+                                            <p className="para-text" style={{ color: 'var(--hw-text-primary)' }}>{profile.country || 'Not set'}</p>
                                         </div>
                                     </div>
 
                                     <div className="hw-info-item" style={{ marginTop: '32px' }}>
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Bio {profile.bio ? '' : <span style={{ color: 'var(--hw-error)' }}>(Required)</span>}</label>
-                                        <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '16px', borderRadius: '16px' }}>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block' }}>Bio {profile.bio ? '' : <span style={{ color: 'var(--hw-error)' }}>(Required)</span>}</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '16px', borderRadius: '16px' }}>
                                             {profile.bio || 'Tell hirers about yourself. A bio is required to apply for jobs.'}
                                         </p>
                                     </div>
@@ -509,7 +555,7 @@ export default function WorkerProfilePage() {
                     {/* SKILLS SECTION */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
-                            <h2 className="text-headline-md">Expertise & Skills</h2>
+                            <h2 className="sub-head-text">Expertise & Skills</h2>
                             {!isAddingSkill && (
                                 <Button variant="ghost" size="sm" onClick={() => setIsAddingSkill(true)}>
                                     <FiPlus /> Add Skill
@@ -541,11 +587,11 @@ export default function WorkerProfilePage() {
 
                             <div className="hw-chip-group">
                                 {mySkills.length === 0 && !isAddingSkill ? (
-                                    <p className="text-body-md" style={{ fontStyle: 'italic' }}>No skills added yet.</p>
+                                    <p className="para-text" style={{ fontStyle: 'italic' }}>No skills added yet.</p>
                                 ) : (
                                     mySkills.map(ws => (
                                         <div key={ws.id} className="hw-premium-chip" style={{ background: 'var(--hw-surface-highest)', border: '1.5px solid var(--hw-surface-high)', borderRadius: '16px', padding: '12px 20px' }}>
-                                            <span className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{ws.skills?.name}</span>
+                                            <span className="para-text" style={{ color: 'var(--hw-text-primary)' }}>{ws.skills?.name}</span>
                                             <div className="hw-chip-remove" onClick={() => handleSkillRemove(ws.id)} style={{ color: 'var(--hw-text-secondary)' }}>
                                                 <FiX size={16} />
                                             </div>
@@ -559,7 +605,7 @@ export default function WorkerProfilePage() {
                     {/* EDUCATION SECTION */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
-                            <h2 className="text-headline-md">Education History</h2>
+                            <h2 className="sub-head-text">Education History</h2>
                             {!isAddingEdu && (
                                 <Button variant="ghost" size="sm" onClick={() => setIsAddingEdu(true)}>
                                     <FiPlus /> Add Entry
@@ -597,11 +643,11 @@ export default function WorkerProfilePage() {
                                         <div key={edu.id} className="list-item" style={{ borderBottom: '1px solid var(--hw-surface-high)', padding: '20px 0' }}>
                                             <div className="li-header">
                                                 <div style={{ flex: 1 }}>
-                                                    <h3 className="text-title-md" style={{ marginBottom: '4px' }}>{edu.institution}</h3>
-                                                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>
+                                                    <h3 className="sub-head-text" style={{ marginBottom: '4px' }}>{edu.institution}</h3>
+                                                    <p className="para-text" style={{ color: 'var(--hw-text-secondary)' }}>
                                                         {edu.degree}{edu.field_of_study ? ` in ${edu.field_of_study}` : ''}
                                                     </p>
-                                                    <p className="text-label-sm" style={{ marginTop: '8px', color: 'var(--hw-primary)', fontWeight: 800 }}>
+                                                    <p className="sub-para-text" style={{ marginTop: '8px', color: 'var(--hw-primary)' }}>
                                                         {edu.start_year} — {edu.end_year || 'PRESENT'}
                                                     </p>
                                                 </div>
@@ -625,15 +671,15 @@ export default function WorkerProfilePage() {
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px', background: 'var(--hw-primary-gradient)', border: 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff', marginBottom: '12px' }}>
                             <FiCheck size={20} strokeWidth={3} />
-                            <h3 className="text-title-md" style={{ color: '#fff', margin: 0 }}>Pro Profile Tip</h3>
+                            <h3 className="sub-head-text" style={{ color: '#fff', margin: 0 }}>Pro Profile Tip</h3>
                         </div>
-                        <p className="text-body-md" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, margin: 0 }}>
+                        <p className="para-text" style={{ color: 'rgba(255,255,255,0.9)', margin: 0 }}>
                             Profiles with a professional headline and a detailed bio get 40% more job invitations.
                         </p>
                     </Card>
 
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                        <h3 className="text-headline-md hw-mb-24">Worker Pulse</h3>
+                        <h2 className="sub-head-text hw-mb-24">Worker Pulse</h2>
                         <div className="profile-stats-grid">
                             <div className="premium-stat-card">
                                 <span className="premium-stat-label">Earnings</span>
@@ -651,7 +697,7 @@ export default function WorkerProfilePage() {
                     {/* AVAILABILITY CARD */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
-                            <h2 className="text-headline-md">Status</h2>
+                            <h2 className="sub-head-text">Status</h2>
                             {!isEditingAvail ? (
                                 <Button variant="ghost" size="sm" onClick={() => setIsEditingAvail(true)}>
                                     <FiEdit2 />
@@ -672,15 +718,15 @@ export default function WorkerProfilePage() {
                                         background: availability.is_available ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
                                         color: availability.is_available ? 'var(--hw-success)' : 'var(--hw-text-secondary)',
                                         textAlign: 'center',
-                                        fontWeight: 800,
+                                        fontWeight: 500,
                                         fontSize: '14px',
                                         letterSpacing: '0.05em'
                                     }}>
                                         {availability.is_available ? 'AVAILABLE FOR WORK' : 'CURRENTLY BUSY'}
                                     </div>
                                     <div className="avail-info">
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>PREFERRED ROLE</label>
-                                        <p className="text-body-md" style={{ textTransform: 'uppercase', fontWeight: 800, color: 'var(--hw-text-primary)' }}>{availability.preferred_role_type}</p>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block' }}>PREFERRED ROLE</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-primary)' }}>{availability.preferred_role_type}</p>
                                     </div>
                                 </div>
                             ) : (
@@ -688,8 +734,8 @@ export default function WorkerProfilePage() {
                                     <div className="hw-switch-wrapper" style={{ marginBottom: '24px', border: '2px solid var(--hw-surface-high)', borderRadius: '18px' }}>
                                         <div className="hw-flex hw-gap-12 hw-items-center">
                                             <div>
-                                                <p className="text-body-md" style={{ fontWeight: 800, color: 'var(--hw-text-primary)', margin: 0 }}>Open to work</p>
-                                                <p className="text-label-sm" style={{ textTransform: 'none', margin: 0 }}>Show profile to hirers</p>
+                                                <p className="para-text" style={{ fontWeight: 500, color: 'var(--hw-text-primary)', margin: 0 }}>Open to work</p>
+                                                <p className="sub-para-text" style={{ textTransform: 'none', margin: 0 }}>Show profile to hirers</p>
                                             </div>
                                         </div>
                                         <label className="hw-switch">
@@ -732,7 +778,7 @@ export default function WorkerProfilePage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '12px',
-                                fontWeight: 800,
+                                fontWeight: 500,
                                 fontSize: '16px',
                                 background: '#1e293b'
                             }}
@@ -757,26 +803,16 @@ export default function WorkerProfilePage() {
                     </div>
                 </div>
             </div>
-            </div>
+        </div>
+        <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+                loading={confirmConfig.loading}
+            />
         </div>
     );
-
-    function calculateCompleteness() {
-        let score = 0;
-        if (profile.first_name) score += 10;
-        if (profile.last_name) score += 5;
-        if (profile.username) score += 5;
-        if (profile.bio) score += 20;
-        if (profile.headline) score += 10;
-        if (profile.phone) score += 5;
-        if (profile.country) score += 5;
-
-        // Relational
-        if (mySkills.length > 0) score += 20;
-        if (myEducation.length > 0) score += 10;
-        if (availability.preferred_role_type) score += 10;
-        if (profile.resume_path) score += 10;
-
-        return Math.min(score, 100);
-    }
 }

@@ -221,7 +221,7 @@ function EditJobContent() {
                 <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
                     <FiChevronLeft size={24} color="#64748B" />
                 </button>
-                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Edit Task</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: 500, color: '#0F172A', margin: 0 }}>Edit Task</h2>
                 <div style={{ width: 40 }} />
             </header>
 
@@ -253,7 +253,7 @@ function EditJobContent() {
                 <div style={{ padding: '0 16px' }}>
                     {step === 1 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Update your task</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Update your task</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Modify the core details of your request.</p>
 
                             <div className="hw-mb-32">
@@ -297,7 +297,7 @@ function EditJobContent() {
 
                             <div className="hw-mb-32">
                                 <label className="hw-floating-label">PHOTOS</label>
-                                <label htmlFor="reference-image" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '12px 20px', borderRadius: '16px', fontSize: '14px', fontWeight: 700, color: '#1E293B', cursor: 'pointer' }}>
+                                <label htmlFor="reference-image" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '12px 20px', borderRadius: '16px', fontSize: '14px', fontWeight: 500, color: '#1E293B', cursor: 'pointer' }}>
                                     <FiPlus /> {imagePreviewUrl ? 'Change Photo' : 'Upload Photo'}
                                     <input 
                                         type="file" 
@@ -337,7 +337,7 @@ function EditJobContent() {
 
                     {step === 2 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Location & Urgency</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Location & Urgency</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Where and how fast do you need this?</p>
 
                             <div className="hw-mb-32">
@@ -364,8 +364,7 @@ function EditJobContent() {
                             <div className="hw-mb-32">
                                 <label className="hw-floating-label">TASK URGENCY</label>
                                 <div className="hw-chip-group">
-                                    <div className={`hw-chip ${formData.urgency === 'immediate' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'immediate' }))}>Immediate</div>
-                                    <div className={`hw-chip ${formData.urgency === 'high' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'high' }))}>Soon</div>
+                                    <div className={`hw-chip ${formData.urgency === 'immediate' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'immediate' }))}>Urgent</div>
                                     <div className={`hw-chip ${formData.urgency === 'flexible' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'flexible' }))}>Flexible</div>
                                 </div>
                             </div>
@@ -374,7 +373,7 @@ function EditJobContent() {
 
                     {step === 3 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Schedule</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Schedule</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>When should it happen?</p>
 
                             <div className="hw-grid-2 hw-mb-32">
@@ -397,7 +396,7 @@ function EditJobContent() {
 
                     {step === 4 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Budget & Preview</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Budget & Preview</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Review and update the final details.</p>
 
                             <div className="hw-price-grid hw-mb-32">
@@ -411,25 +410,25 @@ function EditJobContent() {
                                         <div className="hw-price-desc">{s.label}</div>
                                     </div>
                                 ))}
-                                <label className={`hw-price-card ${!BUDGET_SUGGESTIONS.map(s=>s.amount.toString()).includes(formData.budget_max) ? 'hw-price-card--active' : ''}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'text' }}>
+                                <label className={`hw-price-card ${!BUDGET_SUGGESTIONS.some(s => s.amount.toString() === formData.budget_max) ? 'hw-price-card--active' : ''}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'text' }}>
                                     <div className="hw-price-value" style={{ fontSize: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <span style={{ fontSize: '18px', marginRight: '4px' }}>₹</span>
                                         <input 
                                             type="number" 
                                             placeholder="0" 
-                                            style={{ background: 'none', border: 'none', width: '60px', fontWeight: 900, color: 'inherit', outline: 'none' }}
-                                            value={BUDGET_SUGGESTIONS.map(s=>s.amount.toString()).includes(formData.budget_max) ? '' : formData.budget_max}
+                                            style={{ background: 'none', border: 'none', width: '80px', fontWeight: 500, color: 'inherit', outline: 'none', textAlign: 'center' }}
+                                            value={formData.budget_max}
                                             onChange={(e) => setFormData(prev => ({ ...prev, budget_max: e.target.value }))}
                                         />
                                     </div>
-                                    <div className="hw-price-desc">CUSTOM</div>
+                                    <div className="hw-price-desc">{BUDGET_SUGGESTIONS.some(s => s.amount.toString() === formData.budget_max) ? 'OTHER' : 'CUSTOM'}</div>
                                 </label>
                             </div>
 
                             <div className="hw-mb-32">
                                 <div className="hw-switch-wrapper">
                                     <div>
-                                        <p style={{ fontWeight: 800, fontSize: '14px', color: '#0F172A' }}>Verified workers only</p>
+                                        <p style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A' }}>Verified workers only</p>
                                         <p style={{ fontSize: '11px', color: '#64748B' }}>Higher quality matches</p>
                                     </div>
                                     <label className="hw-switch">
@@ -464,7 +463,7 @@ function EditJobContent() {
                             variant="primary" 
                             onClick={step === 4 ? handleSubmit : nextStep}
                             disabled={!isStepValid()}
-                            style={{ flex: 1, height: '60px', borderRadius: '30px', fontSize: '18px', fontWeight: 900 }}
+                            style={{ flex: 1, height: '60px', borderRadius: '30px', fontSize: '18px', fontWeight: 500 }}
                         >
                             {step === 4 ? "Update Task" : "Next"}
                         </Button>

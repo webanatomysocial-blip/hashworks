@@ -55,6 +55,7 @@ export default function CreateJobPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -102,8 +103,7 @@ export default function CreateJobPage() {
             if (!user) throw new Error('You must be logged in to post a job.');
 
             let uploadedImageUrl = formData.reference_image_url;
-            const fileInput = document.getElementById('reference-image');
-            const file = fileInput?.files?.[0];
+            const file = selectedFile;
 
             if (file) {
                 const fileExt = file.name.split('.').pop();
@@ -144,6 +144,10 @@ export default function CreateJobPage() {
             const { data: inserted, error: insErr } = await supabase.from('jobs').insert(payload).select('id').single();
             if (insErr) throw insErr;
             
+            // Update profile stats: increment total_tasks_posted
+            const { data: curProf } = await supabase.from('profiles').select('total_tasks_posted').eq('id', user.id).single();
+            await supabase.from('profiles').update({ total_tasks_posted: (curProf?.total_tasks_posted || 0) + 1 }).eq('id', user.id);
+
             router.push('/hirer/postings');
         } catch (err) {
             console.error('Error saving job:', err);
@@ -186,7 +190,7 @@ export default function CreateJobPage() {
                 <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
                     <FiChevronLeft size={24} color="#64748B" />
                 </button>
-                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Post a Task</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: 500, color: '#0F172A', margin: 0 }}>Post a Task</h2>
                 <div style={{ width: 40 }} />
             </header>
 
@@ -207,7 +211,7 @@ export default function CreateJobPage() {
                 <div style={{ padding: '0 16px' }}>
                     {step === 1 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>What do you need help with?</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>What do you need help with?</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Describe your task clearly so the right people can help.</p>
 
                             <div className="hw-mb-32">
@@ -256,7 +260,7 @@ export default function CreateJobPage() {
                             <div className="hw-mb-32">
                                 <label className="hw-floating-label">ADD PHOTOS</label>
                                 
-                                <label htmlFor="reference-image" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '12px 20px', borderRadius: '16px', fontSize: '14px', fontWeight: 700, color: '#1E293B', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                <label htmlFor="reference-image" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '12px 20px', borderRadius: '16px', fontSize: '14px', fontWeight: 500, color: '#1E293B', cursor: 'pointer', transition: 'all 0.2s' }}>
                                     <FiPlus /> Upload Reference Photo
                                     <input 
                                         type="file" 
@@ -266,6 +270,7 @@ export default function CreateJobPage() {
                                         onChange={(e) => {
                                             const file = e.target.files[0];
                                             if (file) {
+                                                setSelectedFile(file);
                                                 const reader = new FileReader();
                                                 reader.onloadend = () => {
                                                     setImagePreviewUrl(reader.result);
@@ -283,7 +288,7 @@ export default function CreateJobPage() {
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 setImagePreviewUrl(null);
-                                                document.getElementById('reference-image').value = '';
+                                                setSelectedFile(null);
                                             }}
                                             style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                                         >
@@ -298,7 +303,7 @@ export default function CreateJobPage() {
                                     <FiAlertCircle size={20} />
                                 </div>
                                 <div>
-                                    <p style={{ fontSize: '14px', fontWeight: 900, color: '#0F172A' }}>Pro Tip</p>
+                                    <p style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>Pro Tip</p>
                                     <p style={{ fontSize: '12px', color: '#475569' }}>Tasks with photos get 3x more offers from top workers.</p>
                                 </div>
                             </div>
@@ -307,7 +312,7 @@ export default function CreateJobPage() {
 
                     {step === 2 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>A few more details...</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>A few more details...</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Help us find the best fit for your location and urgency.</p>
 
                             <div className="hw-mb-32">
@@ -334,8 +339,7 @@ export default function CreateJobPage() {
                             <div className="hw-mb-32">
                                 <label className="hw-floating-label">TASK URGENCY</label>
                                 <div className="hw-chip-group">
-                                    <div className={`hw-chip ${formData.urgency === 'immediate' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'immediate' }))}>Immediate</div>
-                                    <div className={`hw-chip ${formData.urgency === 'high' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'high' }))}>Soon</div>
+                                    <div className={`hw-chip ${formData.urgency === 'immediate' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'immediate' }))}>Urgent</div>
                                     <div className={`hw-chip ${formData.urgency === 'flexible' ? 'hw-chip--active' : ''}`} onClick={() => setFormData(prev => ({ ...prev, urgency: 'flexible' }))}>Flexible</div>
                                 </div>
                             </div>
@@ -344,17 +348,62 @@ export default function CreateJobPage() {
 
                     {step === 3 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Set the Schedule</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Set the Schedule</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>When should the task begin and how long will it take?</p>
 
                             <div className="hw-grid-2 hw-mb-32">
-                                <div>
+                                <div style={{ position: 'relative' }}>
                                     <label className="hw-floating-label">START DATE</label>
-                                    <input type="date" className="hw-floating-input" name="start_date" value={formData.start_date} onChange={handleChange} />
+                                    <input 
+                                        type="date" 
+                                        className="hw-floating-input" 
+                                        name="start_date" 
+                                        min={new Date().toISOString().split('T')[0]}
+                                        value={formData.start_date} 
+                                        onChange={(e) => {
+                                            const newDate = e.target.value;
+                                            setFormData(prev => {
+                                                const updated = { ...prev, start_date: newDate };
+                                                // If today, check if time is in past
+                                                if (newDate === new Date().toISOString().split('T')[0]) {
+                                                    const now = new Date();
+                                                    const currentH = now.getHours();
+                                                    const currentM = now.getMinutes();
+                                                    const [h, m] = prev.start_time.split(':').map(Number);
+                                                    if (h < currentH || (h === currentH && m <= currentM)) {
+                                                        // Set to next hour
+                                                        updated.start_time = `${String((currentH + 1) % 24).padStart(2, '0')}:00`;
+                                                    }
+                                                }
+                                                return updated;
+                                            });
+                                        }} 
+                                        style={{ paddingRight: '40px' }}
+                                    />
+                                    <FiCalendar style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
                                 </div>
-                                <div>
+                                <div style={{ position: 'relative' }}>
                                     <label className="hw-floating-label">START TIME</label>
-                                    <input type="time" className="hw-floating-input" name="start_time" value={formData.start_time} onChange={handleChange} />
+                                    <input 
+                                        type="time" 
+                                        className="hw-floating-input" 
+                                        name="start_time" 
+                                        value={formData.start_time} 
+                                        onChange={(e) => {
+                                            const newTime = e.target.value;
+                                            if (formData.start_date === new Date().toISOString().split('T')[0]) {
+                                                const now = new Date();
+                                                const [h, m] = newTime.split(':').map(Number);
+                                                if (h < now.getHours() || (h === now.getHours() && m < now.getMinutes())) {
+                                                    alert("Please select a future time for today's task.");
+                                                    return;
+                                                }
+                                            }
+                                            setFormData(prev => ({ ...prev, start_time: newTime }));
+                                        }} 
+                                        style={{ paddingRight: '40px' }}
+                                    />
+                                    <FiClock style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
                                 </div>
                             </div>
 
@@ -367,7 +416,7 @@ export default function CreateJobPage() {
 
                     {step === 4 && (
                         <div className="hw-fade-in">
-                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 900 }}>Set Your Budget</h1>
+                            <h1 className="text-display-sm hw-mb-8" style={{ fontSize: '30px', fontWeight: 500 }}>Set Your Budget</h1>
                             <p className="text-body-md hw-mb-32" style={{ color: '#64748B' }}>Choose how much you want to pay for this task.</p>
 
                             <div className="hw-price-grid hw-mb-32">
@@ -382,18 +431,18 @@ export default function CreateJobPage() {
                                         <div className="hw-price-desc">{s.label}</div>
                                     </div>
                                 ))}
-                                <label className={`hw-price-card ${!BUDGET_SUGGESTIONS.map(s=>s.amount.toString()).includes(formData.budget_max) ? 'hw-price-card--active' : ''}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'text' }}>
+                                <label className={`hw-price-card ${!BUDGET_SUGGESTIONS.some(s => s.amount.toString() === formData.budget_max) ? 'hw-price-card--active' : ''}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'text' }}>
                                     <div className="hw-price-value" style={{ fontSize: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <span style={{ fontSize: '18px', marginRight: '4px' }}>₹</span>
                                         <input 
                                             type="number" 
                                             placeholder="0" 
-                                            style={{ background: 'none', border: 'none', width: '60px', fontWeight: 900, color: 'inherit', outline: 'none' }}
-                                            value={BUDGET_SUGGESTIONS.map(s=>s.amount.toString()).includes(formData.budget_max) ? '' : formData.budget_max}
+                                            style={{ background: 'none', border: 'none', width: '80px', fontWeight: 500, color: 'inherit', outline: 'none', textAlign: 'center' }}
+                                            value={formData.budget_max}
                                             onChange={(e) => setFormData(prev => ({ ...prev, budget_max: e.target.value }))}
                                         />
                                     </div>
-                                    <div className="hw-price-desc">CUSTOM</div>
+                                    <div className="hw-price-desc">{BUDGET_SUGGESTIONS.some(s => s.amount.toString() === formData.budget_max) ? 'OTHER' : 'CUSTOM'}</div>
                                 </label>
                             </div>
 
@@ -412,7 +461,7 @@ export default function CreateJobPage() {
                                             <FiCheck size={18} />
                                         </div>
                                         <div>
-                                            <p style={{ fontWeight: 800, fontSize: '14px', color: '#0F172A' }}>Verified workers only</p>
+                                            <p style={{ fontWeight: 500, fontSize: '14px', color: '#0F172A' }}>Verified workers only</p>
                                             <p style={{ fontSize: '11px', color: '#64748B' }}>Higher quality, faster completion</p>
                                         </div>
                                     </div>
@@ -428,7 +477,7 @@ export default function CreateJobPage() {
                                 </div>
                             </div>
 
-                            <h3 style={{ fontWeight: 800, fontSize: '18px', color: '#1E293B', marginBottom: '16px' }}>Task Summary</h3>
+                            <h3 style={{ fontWeight: 500, fontSize: '18px', color: '#1E293B', marginBottom: '16px' }}>Task Summary</h3>
                             <TaskCard 
                                 topTitleLabel="TASK TITLE"
                                 title={formData.title || 'Untitled Task'}
@@ -465,7 +514,7 @@ export default function CreateJobPage() {
                                 height: '60px', 
                                 borderRadius: '30px', 
                                 fontSize: '18px', 
-                                fontWeight: 900, 
+                                fontWeight: 500, 
                                 boxShadow: isStepValid() ? '0 8px 25px rgba(28, 77, 255, 0.3)' : 'none',
                                 display: 'flex',
                                 alignItems: 'center',

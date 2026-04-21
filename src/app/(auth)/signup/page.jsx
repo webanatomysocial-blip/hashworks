@@ -114,7 +114,7 @@ export default function Signup() {
                     <div className="auth-input-group">
                         <label className="auth-label">Phone Number</label>
                         <div className="auth-input-wrapper">
-                             <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#0f172a', borderRight: '1px solid #cbd5e1', paddingRight: '8px' }}>+91</div>
+                             <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: 500, color: '#0f172a', borderRight: '1px solid #cbd5e1', paddingRight: '8px' }}>+91</div>
                             <input
                                 type="tel"
                                 name="phone"
@@ -170,7 +170,7 @@ export default function Signup() {
                     </div>
 
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
-                        {loading ? <HashLoader text="" /> : 'Continue'}
+                        {loading ? <HashLoader text="" inline /> : 'Continue'}
                     </button>
                 </form>
 
@@ -195,7 +195,7 @@ export default function Signup() {
             </div>
 
             <footer style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '20px', textAlign: 'center' }}>
-                <p style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
+                <p style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 500 }}>
                     By continuing, you agree to our <Link href="/terms" style={{ color: '#64748b' }}>Terms</Link> & <Link href="/privacy" style={{ color: '#64748b' }}>Privacy Policy</Link>
                 </p>
             </footer>

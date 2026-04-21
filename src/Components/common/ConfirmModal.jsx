@@ -57,7 +57,7 @@ export default function ConfirmModal({
                         onClick={onConfirm}
                         disabled={loading}
                     >
-                        {loading ? <HashLoader text="" /> : confirmText}
+                        {loading ? <HashLoader text="" inline /> : confirmText}
                     </button>
                 </div>
             </div>

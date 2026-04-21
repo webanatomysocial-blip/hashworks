@@ -20,6 +20,7 @@ import { Card } from "@/Components/ui/Card";
 import { Badge } from "@/Components/ui/Badge";
 import { Button } from "@/Components/ui/Button";
 import SectionHeader from "@/Components/common/SectionHeader";
+import RecentReviews from '@/Components/profile/RecentReviews';
 
 /* helper: full name from profile */
 function fullName(p) {
@@ -41,6 +42,7 @@ function ApplicationReviewContent() {
     const appId = searchParams.get('id');
 
     const [application, setApplication] = useState(null);
+    const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
@@ -52,17 +54,28 @@ function ApplicationReviewContent() {
             const { data: { user } } = await supabase.auth.getUser();
             setCurrentUser(user);
 
-            const { data: appData, error: appErr } = await supabase
-                .from('applications')
-                .select(`
-                    *,
-                    worker:profiles!applications_worker_id_fkey(*),
-                    job:jobs(*)
-                `)
-                .eq('id', appId)
-                .single();
-            
-            if (appErr) throw appErr;
+                const { data: appData, error: appErr } = await supabase
+                    .from('applications')
+                    .select(`
+                        *,
+                        worker:profiles!applications_worker_id_fkey(*),
+                        job:jobs(*)
+                    `)
+                    .eq('id', appId)
+                    .single();
+                
+                if (appErr) throw appErr;
+
+                // Fetch basic reviews for the worker
+                if (appData.worker_id) {
+                    const { data: revs } = await supabase
+                        .from('reviews')
+                        .select(`*, reviewer:reviewer_id(first_name, last_name, avatar_url)`)
+                        .eq('reviewee_id', appData.worker_id)
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+                    setReviews(revs || []);
+                }
 
             if (appData.status === 'accepted') {
                 const { data: contractData } = await supabase
@@ -180,21 +193,21 @@ function ApplicationReviewContent() {
 
                                 <div className="hw-text-center hw-w-full">
                                     <div className="hw-flex hw-flex-col hw-items-center hw-gap-8 hw-mb-12">
-                                        <h2 className="text-headline-lg" style={{ margin: 0, fontSize: '24px' }}>{fullName(p)}</h2>
+                                        <h2 className="head-text" style={{ margin: 0 }}>{fullName(p)}</h2>
                                         <Badge variant={application.status === 'accepted' ? 'success' : application.status === 'rejected' ? 'urgent' : 'waiting'}>
                                             {application.status}
                                         </Badge>
                                     </div>
-                                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', marginBottom: 'var(--hw-space-16)' }}>
+                                    <p className="para-text" style={{ color: 'var(--hw-text-secondary)', marginBottom: 'var(--hw-space-16)' }}>
                                         {p.headline || 'Professional Freelancer'}
                                     </p>
                                     <div className="hw-flex hw-justify-center hw-gap-16">
-                                        <div className="text-label-sm hw-flex hw-items-center hw-gap-4">
+                                        <div className="sub-para-text hw-flex hw-items-center hw-gap-4">
                                             <FiMapPin size={14} /> {p.country || 'Global'}
                                         </div>
                                         {p.website && (
-                                            <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', fontWeight: 700, textDecoration: 'none' }}>
-                                                <FiGlobe size={14} /> PORTFOLIO
+                                            <a href={p.website} target="_blank" rel="noopener noreferrer" className="sub-para-text hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', textDecoration: 'none' }}>
+                                                <FiGlobe size={14} /> Portfolio
                                             </a>
                                         )}
                                     </div>
@@ -203,22 +216,26 @@ function ApplicationReviewContent() {
                         </Card>
 
                         <div className="hw-section" style={{ padding: '0 4px' }}>
-                            <h3 className="text-title-md hw-mb-16" style={{ letterSpacing: '0.05em' }}>COVER LETTER</h3>
+                            <h3 className="sub-head-text hw-mb-16" style={{ fontSize: '18px', letterSpacing: '0.05em' }}>Cover Letter</h3>
                             <Card padding="xl" variant="elevated" style={{ borderRadius: '20px', border: '1.5px solid var(--hw-surface-high)' }}>
-                                <p className="text-body-md" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: 'var(--hw-text-main)' }}>
+                                <p className="para-text" style={{ whiteSpace: 'pre-wrap', color: 'var(--hw-text-main)' }}>
                                     {application.cover_letter || "No cover letter provided."}
                                 </p>
                             </Card>
                         </div>
 
                         {p.bio && (
-                            <div className="hw-section" style={{ padding: '0 4px' }}>
-                                <h3 className="text-title-md hw-mb-16" style={{ letterSpacing: '0.05em' }}>ABOUT WORKER</h3>
+                            <div className="hw-section" style={{ padding: '0 4px', marginTop: '24px' }}>
+                                <h3 className="sub-head-text hw-mb-16" style={{ fontSize: '18px', letterSpacing: '0.05em' }}>About Worker</h3>
                                 <Card padding="xl" variant="elevated" style={{ borderRadius: '20px', border: '1.5px solid var(--hw-surface-high)' }}>
-                                    <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)' }}>{p.bio}</p>
+                                    <p className="para-text" style={{ color: 'var(--hw-text-secondary)' }}>{p.bio}</p>
                                 </Card>
                             </div>
                         )}
+
+                        <div className="hw-section" style={{ padding: '0 4px', marginTop: '24px' }}>
+                            <RecentReviews reviews={reviews} targetId={p.id} />
+                        </div>
                     </div>
 
                     {/* Secondary Column */}
@@ -226,7 +243,7 @@ function ApplicationReviewContent() {
                         {/* Desktop Decision Card */}
                         <div className="wh-desktop-apply-box">
                             <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                                <h3 className="text-title-md hw-mb-24">REVIEW DECISION</h3>
+                                <h3 className="sub-head-text hw-mb-24" style={{ fontSize: '18px' }}>Review Decision</h3>
                                 
                                 {application.status === 'pending' ? (
                                     <div className="hw-flex hw-flex-col hw-gap-12">
@@ -245,9 +262,10 @@ function ApplicationReviewContent() {
                                             background: application.status === 'accepted' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                             color: application.status === 'accepted' ? 'var(--hw-success)' : 'var(--hw-error)',
                                             textAlign: 'center',
-                                            fontWeight: 800
+                                            fontWeight: 500,
+                                            textTransform: 'capitalize'
                                         }}>
-                                            APPLICATION {application.status?.toUpperCase()}
+                                            Application {application.status}
                                         </div>
                                         {application.status === 'accepted' && (
                                             <Button onClick={openChat} style={{ height: '52px', borderRadius: '12px' }}>
@@ -260,13 +278,13 @@ function ApplicationReviewContent() {
                         </div>
 
                         <Card variant="elevated" padding="lg" style={{ borderRadius: '24px', border: '1px solid var(--hw-surface-high)' }}>
-                            <h3 className="text-label-sm hw-mb-16" style={{ color: 'var(--hw-text-secondary)', letterSpacing: '0.1em' }}>JOB CONTEXT</h3>
-                            <h4 className="text-title-md hw-mb-8" style={{ fontSize: '18px' }}>{job.title}</h4>
+                            <h3 className="sub-para-text hw-mb-16" style={{ color: 'var(--hw-text-secondary)' }}>Job Context</h3>
+                            <h4 className="para-text hw-mb-8">{job.title}</h4>
                             <div className="hw-flex hw-flex-col hw-gap-12 hw-mb-20">
-                                <span className="text-body-sm hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiMapPin size={16} /> {job.city || 'Remote'}</span>
-                                <span className="text-body-sm hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiBriefcase size={16} /> {job.category || 'Gig'}</span>
+                                <span className="sub-para-text hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiMapPin size={16} /> {job.city || 'Remote'}</span>
+                                <span className="sub-para-text hw-flex hw-items-center hw-gap-8" style={{ color: 'var(--hw-text-secondary)' }}><FiBriefcase size={16} /> {job.category || 'Gig'}</span>
                             </div>
-                            <Link href="/hirer/postings" className="text-label-sm hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', textDecoration: 'none', fontWeight: 800 }}>
+                            <Link href="/hirer/postings" className="sub-para-text hw-flex hw-items-center hw-gap-4" style={{ color: 'var(--hw-primary)', textDecoration: 'none' }}>
                                 BACK TO POSTINGS <FiChevronRight />
                             </Link>
                         </Card>
@@ -281,7 +299,7 @@ function ApplicationReviewContent() {
                         <Button 
                             onClick={() => handleAction('accepted')} 
                             disabled={actionLoading} 
-                            style={{ flex: 2, height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 800 }}
+                            style={{ flex: 2, height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 500 }}
                         >
                             {actionLoading ? "..." : "Accept Applicant"}
                         </Button>
@@ -299,7 +317,7 @@ function ApplicationReviewContent() {
 
             {application.status === 'accepted' && (
                 <div className="wh-mobile-sticky-footer">
-                    <Button onClick={openChat} style={{ width: '100%', height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 800 }}>
+                    <Button onClick={openChat} style={{ width: '100%', height: '60px', borderRadius: '18px', fontSize: '16px', fontWeight: 500 }}>
                         <FiMessageCircle size={20} style={{ marginRight: '10px' }} /> CHAT WITH WORKER
                     </Button>
                 </div>

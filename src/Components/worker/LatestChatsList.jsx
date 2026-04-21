@@ -46,10 +46,23 @@ export default function LatestChatsList({ chats = [], onViewAll, onChatClick }) 
               onClick={() => onChatClick(chat.contract?.id)}
             >
               {/* Avatar */}
-              <div className="hw-chat-avatar">
+              <div 
+                className="hw-chat-avatar" 
+                style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  flexShrink: 0, 
+                  borderRadius: '50%', 
+                  overflow: 'hidden',
+                  background: 'var(--hw-surface-high)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
                 {person?.avatar_url
-                  ? <img src={person.avatar_url} alt={initials} className="hw-w-full hw-h-full" style={{ objectFit: 'cover', borderRadius: '50%' }} />
-                  : <span>{initials}</span>
+                  ? <img src={person.avatar_url} alt={initials} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--hw-primary)' }}>{initials}</span>
                 }
               </div>
 

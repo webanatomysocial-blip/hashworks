@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '@/Components/ui/Card';
-import { FiBriefcase, FiUsers } from 'react-icons/fi';
+import { FiBriefcase, FiUsers, FiCheckCircle } from 'react-icons/fi';
 
 /**
  * SummaryStats Component
@@ -10,19 +10,21 @@ import { FiBriefcase, FiUsers } from 'react-icons/fi';
 export default function SummaryStats({ 
   activeCount = 0, 
   acceptedCount = 0, 
+  pastWorksCount = 0,
   onActiveClick, 
-  onApplicationsClick 
+  onApplicationsClick,
+  onPortfolioClick 
 }) {
   return (
-    <div className="hw-grid-2">
+    <div className="hw-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
       <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onActiveClick} style={{ borderRadius: '24px' }}>
         <div className="hw-flex hw-flex-col">
           <div className="hw-icon-box-success hw-mb-16" style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px' }}>
             <FiBriefcase size={22} />
           </div>
           <div className="hw-flex hw-justify-between hw-items-end">
-            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Active Gigs</span>
-            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{activeCount}</div>
+            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Active</span>
+            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A', fontSize: '24px' }}>{activeCount}</div>
           </div>
         </div>
       </Card>
@@ -33,9 +35,21 @@ export default function SummaryStats({
             <FiUsers size={22} />
           </div>
           <div className="hw-flex hw-justify-between hw-items-end">
-            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Applications</span>
-            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A' }}>{acceptedCount}</div>
+            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Applications</span>
+            <div className="text-display-xl hw-text-32" style={{ lineHeight: 0.8, color: '#0F172A', fontSize: '24px' }}>{acceptedCount}</div>
           </div>
+        </div>
+      </Card>
+
+      <Card variant="elevated" padding="lg" className="hw-card-interactive" onClick={onPortfolioClick} style={{ borderRadius: '24px', gridColumn: 'span 2' }}>
+        <div className="hw-flex hw-justify-between hw-items-center">
+          <div className="hw-flex hw-items-center hw-gap-16">
+            <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', background: '#DCFCE7', color: '#16A34A', flexShrink: 0 }}>
+              <FiCheckCircle size={22} />
+            </div>
+            <span className="text-label-sm" style={{ color: '#64748B', fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', fontSize: '10px' }}>Previous Works</span>
+          </div>
+          <div className="text-display-xl hw-text-32" style={{ color: '#0F172A', fontSize: '24px' }}>{pastWorksCount}</div>
         </div>
       </Card>
     </div>

@@ -165,7 +165,7 @@ export default function LocationModal({ isOpen, onClose, onLocationUpdate }) {
         {step === "gps" && (
           <div className="lm-gps-detecting">
             {detecting ? (
-              <HashLoader text="" />
+              <HashLoader text="" inline />
             ) : selectedLoc ? (
               <div className="lm-selected">
                 <FiNavigation color="#0047ff" size={28} />
@@ -197,7 +197,7 @@ export default function LocationModal({ isOpen, onClose, onLocationUpdate }) {
               disabled={!selectedLoc || loading}
               onClick={handleConfirm}
             >
-              {loading ? <HashLoader text="" /> : "Confirm Location"}
+              {loading ? <HashLoader text="" inline /> : "Confirm Location"}
             </button>
           </div>
         )}

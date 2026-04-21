@@ -10,6 +10,7 @@ import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { TaskCard } from "@/Components/ui/TaskCard";
 import SectionHeader from "@/Components/common/SectionHeader";
+import ConfirmModal from '@/Components/common/ConfirmModal';
 
 export default function ActiveGigsPage() {
     const router = useRouter();
@@ -18,6 +19,16 @@ export default function ActiveGigsPage() {
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
     const [activeMenuId, setActiveMenuId] = useState(null);
+
+    // Confirm Modal State
+    const [confirmConfig, setConfirmConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        variant: 'destructive',
+        loading: false
+    });
 
     useEffect(() => {
         async function fetchAcceptedGigs() {
@@ -61,25 +72,36 @@ export default function ActiveGigsPage() {
     };
 
     const handleCancelContract = async (contractId, jobId) => {
-        if (!confirm('Are you sure you want to cancel this contract?')) return;
-        try {
-            const { error: contractErr } = await supabase
-                .from('contracts')
-                .update({ status: 'cancelled' })
-                .eq('id', contractId);
-            if (contractErr) throw contractErr;
+        setConfirmConfig({
+            isOpen: true,
+            title: "Cancel Contract?",
+            message: "Are you sure you want to cancel this contract? The job will be returned to the browse pool and your progress will be lost.",
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, loading: true }));
+                try {
+                    const { error: contractErr } = await supabase
+                        .from('contracts')
+                        .update({ status: 'cancelled' })
+                        .eq('id', contractId);
+                    if (contractErr) throw contractErr;
 
-            await supabase
-                .from('jobs')
-                .update({ status: 'active' })
-                .eq('id', jobId);
+                    await supabase
+                        .from('jobs')
+                        .update({ status: 'active' })
+                        .eq('id', jobId);
 
-            setAcceptedApps(prev => prev.filter(c => c.id !== contractId));
-            setActiveMenuId(null);
-        } catch (err) {
-            console.error('Error cancelling contract:', err);
-            alert('Failed to cancel contract: ' + err.message);
-        }
+                    setAcceptedApps(prev => prev.filter(c => c.id !== contractId));
+                    setActiveMenuId(null);
+                    showToast('Contract cancelled successfully', 'info');
+                } catch (err) {
+                    console.error('Error cancelling contract:', err);
+                    showToast('Failed to cancel contract: ' + err.message, 'error');
+                } finally {
+                    setConfirmConfig(prev => ({ ...prev, loading: false, isOpen: false }));
+                }
+            }
+        });
     };
 
     if (loading) return <HashLoader text="" />;
@@ -92,12 +114,12 @@ export default function ActiveGigsPage() {
                 <div style={{ padding: '24px 20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {acceptedApps.length === 0 ? (
-                            <Card variant="border" padding="xl" className="hw-text-center">
-                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B' }}>
+                            <Card variant="elevated" padding="xl" className="hw-text-center" style={{ borderRadius: '24px' }}>
+                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B', borderRadius: '16px', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                      <FiBriefcase size={24} />
                                  </div>
-                                 <h3 className="text-title-md">No active gigs.</h3>
-                                 <p className="text-body-md">You don't have any accepted ongoing gigs at the moment.</p>
+                                 <h3 className="sub-head-text">No active gigs.</h3>
+                                 <p className="para-text">You don't have any accepted ongoing gigs at the moment.</p>
                             </Card>
                         ) : (
                             acceptedApps.map(contract => (
@@ -107,9 +129,8 @@ export default function ActiveGigsPage() {
                                     title={contract.jobs?.title || 'Ongoing Task'}
                                     thumbnailUrl={contract.jobs?.reference_image_url}
                                     badge={{ 
-                                        text: contract.status.toUpperCase(), 
-                                        bg: '#DCFCE7', 
-                                        color: '#16A34A' 
+                                        text: contract.status === 'active' ? 'In Progress' : contract.status, 
+                                        variant: contract.status === 'active' ? 'in_progress' : contract.status
                                     }}
                                     metrics={[
                                         { label: 'EARN', value: contract.agreed_amount ? `₹${contract.agreed_amount.toLocaleString()}` : (contract.jobs?.budget_max ? `₹${contract.jobs.budget_max.toLocaleString()}` : "Market Rate") },
@@ -121,7 +142,7 @@ export default function ActiveGigsPage() {
                                                 e.stopPropagation();
                                                 router.push(`/worker/workercontract?id=${contract.id}`);
                                             }}
-                                            style={{ flex: 1, background: 'var(--hw-primary)', color: '#fff', border: 'none', borderRadius: '22px', height: '48px', fontWeight: 800, cursor: 'pointer', fontSize: '14px' }}
+                                            style={{ flex: 1, background: 'var(--hw-primary)', color: '#fff', border: 'none', borderRadius: '22px', height: '48px', fontWeight: 500, cursor: 'pointer', fontSize: '14px' }}
                                         >
                                             View Details
                                         </button>
@@ -132,6 +153,16 @@ export default function ActiveGigsPage() {
                     </div>
                 </div>
             </PageContainer>
+
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+                loading={confirmConfig.loading}
+            />
         </div>
     );
 }

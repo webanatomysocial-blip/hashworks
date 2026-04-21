@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/Components/ui/Card';
+import { Badge } from '@/Components/ui/Badge';
 
 export default function ActiveTaskBanner({ contract, role = 'worker', onClick }) {
     const router = useRouter();
@@ -13,7 +14,11 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
     const otherPerson = role === 'worker' ? contract.hirer : contract.worker;
 
     // Logic for Status and Metric
-    const statusText = contract.status === 'active' ? 'In Progress' : (contract.status || 'Active');
+    // Logic for Status and Metric
+    const rawStatus = contract.status || 'active';
+    const statusText = rawStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    const displayStatus = rawStatus === 'active' ? 'In Progress' : statusText;
     
     // Role-specific Metrics
     let metricLabel = "";
@@ -75,58 +80,61 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
             }}
         >
             {/* Header: Badge & Category */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ 
-                    background: badgeBg, 
-                    color: badgeColor, 
-                    padding: '6px 12px', 
-                    borderRadius: '20px', 
-                    fontSize: '13px', 
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: badgeColor }}></div>
-                    {otherPerson ? 'Accepted' : statusText.toUpperCase()}
-                </div>
-                <div style={{ color: lightBlueText, fontSize: '15px', fontWeight: 600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <Badge 
+                    variant={rawStatus}
+                    style={{ 
+                        backgroundColor: '#C8FF2C', 
+                        color: '#0F172A',
+                        border: 'none',
+                        padding: '6px 14px',
+                        fontSize: '13px',
+                        fontWeight: 600
+                    }}
+                >
+                    {displayStatus}
+                </Badge>
+                <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '16px', fontWeight: 500 }}>
                     {job.title || 'Ongoing Task'}
                 </div>
             </div>
 
             {/* Metric Row */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <span style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1 }}>{metricLabel} {metricValue}</span>
-                {metricUnit && <span style={{ fontSize: '24px', color: lightBlueText, fontWeight: 700 }}>{metricUnit}</span>}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '8px 0' }}>
+                <span style={{ fontSize: '42px', fontWeight: 700, lineHeight: 1 }}>{metricLabel} {metricValue}</span>
+                {metricUnit && <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '18px' }}>{metricUnit}</span>}
             </div>
 
             {/* Description / Instructions */}
             <p style={{ 
-                color: 'rgba(255, 255, 255, 0.9)', 
-                fontSize: '15px', 
-                lineHeight: 1.5,
+                color: 'rgba(255, 255, 255, 0.95)', 
                 margin: 0,
-                maxWidth: '90%'
+                maxWidth: '92%',
+                fontSize: '18px',
+                lineHeight: 1.5,
+                fontWeight: 400
             }}>
                 {description}
             </p>
 
             {/* Action Button */}
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ marginTop: '12px' }}>
                 <button 
                     onClick={handleAction}
                     style={{ 
-                        background: buttonBg, 
+                        background: 'rgba(255, 255, 255, 0.2)', 
                         color: 'white', 
-                        border: 'none', 
-                        padding: '12px 24px', 
+                        border: '1px solid rgba(255, 255, 255, 0.3)', 
+                        padding: '14px 32px', 
                         borderRadius: '100px', 
-                        fontSize: '15px', 
-                        fontWeight: 700,
+                        fontSize: '17px', 
+                        fontWeight: 600,
                         cursor: 'pointer',
-                        transition: 'background 0.2s'
+                        transition: 'all 0.2s',
+                        backdropFilter: 'blur(10px)'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
                 >
                     {otherPerson ? 'Open Chat' : 'View Applicants'}
                 </button>

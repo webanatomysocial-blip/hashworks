@@ -30,7 +30,7 @@
 
 .auth-logo-text {
     font-size: 20px; /* Scaled down logo for mobile */
-    font-weight: 900;
+    font-weight: 500;
     color: var(--auth-primary);
     margin-bottom: 24px;
     letter-spacing: -0.5px;
@@ -66,7 +66,7 @@
 
 .auth-title {
     font-size: 26px; /* Adjusted for mobile */
-    font-weight: 800;
+    font-weight: 500;
     margin-bottom: 12px;
     text-align: center;
     color: var(--auth-text-main);
@@ -112,7 +112,7 @@
 
 .auth-label {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 500;
     color: var(--auth-text-main);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -172,7 +172,7 @@
     padding: 16px;
     border-radius: var(--auth-radius-md);
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 500;
     border: none;
     cursor: pointer;
     margin-top: 8px;
@@ -208,7 +208,7 @@
 .auth-divider-text {
     padding: 0 16px;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 500;
     color: var(--auth-text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -232,7 +232,7 @@
     border: 2px solid transparent;
     border-radius: var(--auth-radius-md);
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 500;
     color: var(--auth-text-main);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -253,7 +253,7 @@
 
 .auth-link {
     color: var(--auth-primary);
-    font-weight: 800;
+    font-weight: 500;
     text-decoration: none;
     margin-left: 4px;
 }
@@ -302,7 +302,7 @@
 
 .auth-value-label {
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 500;
     color: #0369a1;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -310,13 +310,13 @@
 
 .auth-value-title {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
     color: #0f172a;
     line-height: 1.2;
 }
 
 .auth-value-title span {
-    font-weight: 900;
+    font-weight: 500;
 }
 
 /* Messages */
@@ -324,7 +324,7 @@
     padding: 14px;
     border-radius: var(--auth-radius-md);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     margin-bottom: 20px;
     width: 100%;
     text-align: center;
@@ -357,7 +357,7 @@
     text-transform: uppercase;
     letter-spacing: 0.8px;
     line-height: 1.6;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .auth-footer-text a {

@@ -13,12 +13,16 @@ const ToastContainer = () => {
         <div style={{
             position: 'fixed',
             top: '24px',
-            right: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 99999,
             display: 'flex',
             flexDirection: 'column',
+            alignItems: 'center',
             gap: '12px',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            width: '100%', // ensure center alignment works correctly
+            maxWidth: '450px'
         }}>
             {toasts.map((toast) => (
                 <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
@@ -58,8 +62,9 @@ const ToastItem = ({ toast, onRemove }) => {
     return (
         <div style={{
             pointerEvents: 'auto',
-            minWidth: '300px',
-            maxWidth: '450px',
+            width: 'fit-content',
+            minWidth: '320px',
+            maxWidth: '100%',
             background: 'rgba(255, 255, 255, 0.85)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
@@ -79,7 +84,7 @@ const ToastItem = ({ toast, onRemove }) => {
             <p style={{
                 margin: 0,
                 fontSize: '14px',
-                fontWeight: 600,
+                fontWeight: 500,
                 color: 'var(--hw-text-primary)',
                 lineHeight: '1.4',
                 flex: 1
@@ -106,11 +111,11 @@ const ToastItem = ({ toast, onRemove }) => {
             <style jsx>{`
                 @keyframes toast-enter {
                     from {
-                        transform: translateX(40px);
+                        transform: translateY(-20px);
                         opacity: 0;
                     }
                     to {
-                        transform: translateX(0);
+                        transform: translateY(0);
                         opacity: 1;
                     }
                 }

@@ -5,12 +5,32 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
     FiMapPin, FiGlobe, FiBriefcase, FiCalendar,
-    FiCheckCircle, FiStar, FiClock, FiDollarSign,
-    FiUser, FiMail, FiExternalLink, FiChevronLeft
+    FiCheckCircle, FiStar, FiClock,
+    FiUser, FiMail, FiExternalLink, FiChevronLeft, FiMessageSquare
 } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
-import { formatLocation } from '@/lib/location';
+import SectionHeader from "@/Components/common/SectionHeader";
 import '@/css/profile.css';
+import RecentReviews from '@/Components/profile/RecentReviews';
+
+function timeAgo(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) {
+        const h = Math.floor(diff / 3600);
+        return `${h} hour${h > 1 ? 's' : ''} ago`;
+    }
+    if (diff < 604800) {
+        const d = Math.floor(diff / 86400);
+        return `${d} day${d > 1 ? 's' : ''} ago`;
+    }
+    const w = Math.floor(diff / 604800);
+    return `${w} week${w > 1 ? 's' : ''} ago`;
+}
 
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
@@ -35,6 +55,7 @@ function ProfileContent() {
     const [availability, setAvailability] = useState(null);
     const [reviews, setReviews] = useState([]);
     const [stats, setStats] = useState({ jobs: 0, contracts: 0 });
+    const [pastWorks, setPastWorks] = useState([]);
 
     useEffect(() => {
         if (targetId) {
@@ -58,62 +79,47 @@ function ProfileContent() {
             if (profErr) throw new Error(profErr.code === 'PGRST116' ? 'Profile not found' : `Database Error: ${profErr.message}`);
             setProfile(prof);
 
-            // Check for Application relationship
-            const { data: asHirerApp } = await supabase
-                .from('applications')
-                .select('id, jobs(hirer_id)')
-                .eq('worker_id', user.id)
-                .eq('jobs.hirer_id', targetId)
-                .maybeSingle();
-
-            const { data: asWorkerApp } = await supabase
-                .from('applications')
-                .select('id, jobs(hirer_id)')
-                .eq('worker_id', targetId)
-                .eq('jobs.hirer_id', user.id)
-                .maybeSingle();
-
-            // Check for Contract relationship (Very important for Ongoing tasks)
-            const { data: asHirerContract } = await supabase
+            // 1. Direct Contract Check (Most common for ongoing tasks)
+            const { data: contracts } = await supabase
                 .from('contracts')
-                .select('id')
-                .eq('worker_id', user.id)
-                .eq('hirer_id', targetId)
-                .maybeSingle();
+                .select('id, hirer_id, worker_id')
+                .or(`worker_id.eq.${targetId},hirer_id.eq.${targetId}`);
 
-            const { data: asWorkerContract } = await supabase
-                .from('contracts')
-                .select('id')
-                .eq('worker_id', targetId)
-                .eq('hirer_id', user.id)
-                .maybeSingle();
+            const hasContractLink = contracts?.some(c => 
+                (c.worker_id === targetId && c.hirer_id === user.id) || 
+                (c.worker_id === user.id && c.hirer_id === targetId)
+            );
 
-            const { data: jobConnection } = await supabase
-                .from('jobs')
-                .select('id')
-                .eq('hirer_id', targetId)
-                .limit(1)
-                .maybeSingle();
+            // 2. Application Check
+            const { data: apps } = await supabase
+                .from('applications')
+                .select('id, worker_id, jobs(hirer_id)')
+                .or(`worker_id.eq.${targetId},worker_id.eq.${user.id}`);
 
-            if (asHirerApp || asHirerContract) {
-                setRole('hirer');
-                await fetchHirerData(targetId);
-            } else if (asWorkerApp || asWorkerContract) {
-                setRole('worker');
-                await fetchWorkerData(targetId);
-            } else if (jobConnection && user.id !== targetId) {
-                setRole('hirer');
-                await fetchHirerData(targetId);
+            const hasAppLink = apps?.some(a => 
+                (a.worker_id === targetId && a.jobs?.hirer_id === user.id) ||
+                (a.worker_id === user.id && a.jobs?.hirer_id === targetId)
+            );
+
+            const isSelf = user.id === targetId;
+
+            if (isSelf || hasContractLink || hasAppLink) {
+                // Determine Role for display
+                const { data: isHirer } = await supabase.from('company_details').select('id').eq('hirer_id', targetId).maybeSingle();
+                const detectedRole = isHirer ? 'hirer' : 'worker';
+                setRole(detectedRole);
+
+                if (detectedRole === 'hirer') {
+                    await fetchHirerData(targetId);
+                } else {
+                    await fetchWorkerData(targetId);
+                }
             } else {
-                if (user.id === targetId) {
-                    const { data: comp } = await supabase.from('company_details').select('id').eq('hirer_id', targetId).maybeSingle();
-                    if (comp) {
-                        setRole('hirer');
-                        await fetchHirerData(targetId);
-                    } else {
-                        setRole('worker');
-                        await fetchWorkerData(targetId);
-                    }
+                // Fallback for public jobs
+                const { data: ownsJob } = await supabase.from('jobs').select('id').eq('hirer_id', targetId).limit(1).maybeSingle();
+                if (ownsJob) {
+                    setRole('hirer');
+                    await fetchHirerData(targetId);
                 } else {
                     setError('Access Restricted: You must have an application or contract with this user to view their full profile.');
                 }
@@ -138,6 +144,9 @@ function ProfileContent() {
         setCompany(compRes.data);
         setStats({ jobs: jobsRes.count || 0, contracts: contractsRes.count || 0 });
         setReviews(reviewsRes.data || []);
+
+        const { data: pwData } = await supabase.from('past_works').select('*').eq('hirer_id', hId).order('completed_at', { ascending: false }).limit(5);
+        setPastWorks(pwData || []);
     };
 
     const fetchWorkerData = async (wId) => {
@@ -152,7 +161,23 @@ function ProfileContent() {
         setEducation(eduRes.data || []);
         setAvailability(availRes.data);
         setReviews(reviewsRes.data || []);
+
+        const { data: pwData } = await supabase.from('past_works').select('*').eq('worker_id', wId).order('completed_at', { ascending: false }).limit(5);
+        setPastWorks(pwData || []);
     };
+
+    const calculateCompleteness = () => {
+        if (!profile) return 0;
+        const fields = [profile.bio, profile.avatar_url, profile.headline, profile.city];
+        const filled = fields.filter(Boolean).length;
+        if (role === 'worker') {
+            const workerFields = [skills.length > 0, education.length > 0, availability];
+            return Math.round(((filled + workerFields.filter(Boolean).length) / (fields.length + 3)) * 100);
+        }
+        return Math.round((filled / fields.length) * 100);
+    };
+
+    const completeness = calculateCompleteness();
 
     if (loading) return <div style={{ padding: '80px', textAlign: 'center' }}><HashLoader text="" /></div>;
     if (error) return (
@@ -164,198 +189,83 @@ function ProfileContent() {
     );
 
     return (
-        <div className="profile-dashboard" style={{ padding: 0 }}>
-            {/* Premium Sticky Header */}
-            <header className="hw-profile-header">
-                <div className="hw-profile-header-slot left">
-                    <button onClick={() => router.back()} className="hw-back-btn">
-                        <FiChevronLeft size={24} color="#64748B" />
-                    </button>
-                </div>
+        <div className="profile-dashboard">
+            {/* Premium Header */}
+            <SectionHeader title={role === 'worker' ? 'Worker Profile' : 'Hirer Profile'} />
+
+            <PageContainer size="lg" style={{ paddingTop: '0px' }}>
                 
-                <div className="hw-profile-header-slot center">
-                    <h2 className="hw-profile-title">{role === 'worker' ? 'Worker' : 'Hirer'} Profile</h2>
-                </div>
-                
-                <div className="hw-profile-header-slot right">
-                    {/* Placeholder for symmetry */}
-                </div>
-            </header>
-
-            {/* Premium Hero Section */}
-            <section className="profile-hero-section">
-                <div className="profile-hero-banner"></div>
-                <div className="profile-hero-content">
-                    <div className="profile-avatar-premium">
-                        {profile.avatar_url ? (
-                            <img src={profile.avatar_url} alt={`${profile.first_name}'s avatar`} />
-                        ) : (
-                            <div className="profile-avatar-placeholder">
-                                {profile.first_name?.charAt(0)}
-                            </div>
-                        )}
-                        <div className="profile-status-ring">
-                            <div className="profile-status-dot"></div>
-                        </div>
-                    </div>
-                    <h1 className="text-display-lg" style={{ color: '#0F172A', marginBottom: '8px' }}>
-                        {profile.first_name} {profile.last_name}
-                    </h1>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>
-                            {role === 'worker' ? (profile.headline || 'Professional Freelancer') : (company?.company_name || 'Verified Hirer')}
-                        </p>
-                        <Badge variant="active" showDot>Official</Badge>
-                    </div>
-                </div>
-            </section>
-
-            <PageContainer size="lg" style={{ paddingTop: '32px' }}>
-                <div className="profile-grid" style={{ marginTop: '0' }}>
-                    {/* ── Main Column ── */}
-                    <div className="profile-col-main">
-                        
-                        {/* About Section */}
-                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                            <h2 className="text-headline-md hw-mb-24">About {role === 'hirer' ? 'Company' : 'Profile'}</h2>
-                            <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '24px', borderRadius: '16px' }}>
-                                {role === 'hirer' ? (company?.company_description || 'No description provided.') : (profile.bio || 'No bio provided.')}
-                            </p>
-                        </Card>
-
-                        {/* Expertise / Skills */}
-                        {role === 'worker' && skills.length > 0 && (
-                            <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                                <h2 className="text-headline-md hw-mb-24">Expertise & Skills</h2>
-                                <div className="hw-chip-group">
-                                    {skills.map((s, i) => (
-                                        <div key={i} className="hw-premium-chip" style={{ background: 'var(--hw-surface-highest)', border: '1.5px solid var(--hw-surface-high)', borderRadius: '16px', padding: '12px 20px' }}>
-                                            <span className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{s}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Feedback / Reviews */}
-                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-24)' }}>
-                                <h2 className="text-headline-md">Recent Feedback</h2>
-                                <Badge variant="active" style={{ height: '32px' }}>★ {profile.average_rating || '5.0'}</Badge>
-                            </div>
-
-                            {reviews.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {reviews.map(rev => (
-                                        <div key={rev.id} style={{ padding: '20px', background: 'var(--hw-surface-high)', borderRadius: '20px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px', color: 'var(--hw-primary)' }}>
-                                                        {rev.reviewer?.avatar_url ? <img src={rev.reviewer.avatar_url} style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : rev.reviewer?.first_name?.charAt(0)}
-                                                    </div>
-                                                    <span className="text-title-md" style={{ fontSize: '16px' }}>{rev.reviewer?.first_name} {rev.reviewer?.last_name}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', color: 'var(--hw-primary)', gap: '4px' }}>
-                                                    {[...Array(5)].map((_, i) => <FiStar key={i} fill={i < rev.rating ? "currentColor" : "none"} size={16} />)}
-                                                </div>
-                                            </div>
-                                            <p className="text-body-md" style={{ fontStyle: 'italic', color: 'var(--hw-text-secondary)', margin: 0 }}>"{rev.comment}"</p>
-                                        </div>
-                                    ))}
-                                </div>
+                {/* 1. Hero Card */}
+                <div className="ph-hero-card hw-premium-card">
+                    <div className="ph-hero-top">
+                        <div className="ph-avatar-box">
+                            {profile.avatar_url ? (
+                                <img src={profile.avatar_url} className="ph-avatar-img" alt="" />
                             ) : (
-                                <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                                    <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', margin: 0 }}>No reviews received yet.</p>
+                                <div className="profile-avatar-placeholder ph-avatar-img" style={{ fontSize: '32px' }}>
+                                    {profile.first_name?.[0]}
                                 </div>
                             )}
-                        </Card>
+                        </div>
+                        <div className="ph-hero-info">
+                            <div className="ph-name">{profile.first_name} {profile.last_name?.charAt(0)}.</div>
+                            <div className="ph-location"><FiMapPin size={12} /> {profile.city || 'Location'}</div>
+                            <div className="ph-meta-row">
+                                <span className="ph-meta-item" style={{ color: '#F59E0B' }}><FiStar size={14} fill="#F59E0B" /> {profile.average_rating || '5.0'}</span>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    {/* ── Side Column ── */}
-                    <div className="profile-col-side" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hw-space-24)' }}>
+
+                <div className="profile-grid">
+                    {/* Main Content Sections */}
+                    <div className="profile-col-main">
                         
-                        {/* Stats Card */}
-                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                            <h3 className="text-headline-md hw-mb-24">Activity Pulse</h3>
-                            <div className="profile-stats-grid">
-                                <div className="premium-stat-card">
-                                    <span className="premium-stat-label">Tasks</span>
-                                    <span className="premium-stat-value">{role === 'worker' ? (profile.total_jobs_completed || 0) : stats.jobs}</span>
-                                </div>
-                                <div className="premium-stat-card">
-                                    <span className="premium-stat-label">Active</span>
-                                    <span className="premium-stat-value">{stats.contracts || 0}</span>
-                                </div>
+                        <div className="ph-section-card">
+                            <div className="ph-title-row">
+                                <h2 className="ph-title">Skills & Bio</h2>
+                                {viewer?.id === targetId && <span className="ph-edit-link">Edit</span>}
                             </div>
-                            <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--hw-surface-high)', textAlign: 'center' }}>
-                                <p className="text-label-sm" style={{ marginBottom: '4px' }}>Member Since</p>
-                                <p className="text-title-md" style={{ color: 'var(--hw-primary)', margin: 0 }}>{new Date(profile.created_at).getFullYear()}</p>
-                            </div>
-                        </Card>
-
-                        {/* Contact Info Card */}
-                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                            <h3 className="text-headline-md hw-mb-24">Details</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{ background: 'var(--hw-surface-high)', padding: '12px', borderRadius: '12px', color: 'var(--hw-primary)' }}>
-                                        <FiMapPin size={20} />
-                                    </div>
-                                    <div>
-                                        <label className="text-label-sm" style={{ display: 'block', marginBottom: '2px' }}>Location</label>
-                                        <span className="text-body-md" style={{ fontWeight: 800, color: 'var(--hw-text-primary)' }}>
-                                            {profile.city || profile.country || 'Global'}
-                                        </span>
-                                    </div>
+                            {role === 'worker' && skills.length > 0 && (
+                                <div className="ph-chip-row">
+                                    {skills.map((s, i) => <span key={i} className="ph-chip">{s}</span>)}
                                 </div>
-                                
-                                {role === 'worker' && availability && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                        <div style={{ background: availability.is_available ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)', padding: '12px', borderRadius: '12px', color: availability.is_available ? 'var(--hw-success)' : 'var(--hw-text-secondary)' }}>
-                                            <FiClock size={20} />
-                                        </div>
-                                        <div>
-                                            <label className="text-label-sm" style={{ display: 'block', marginBottom: '2px' }}>Status</label>
-                                            <span className="text-body-md" style={{ fontWeight: 800, color: 'var(--hw-text-primary)' }}>
-                                                {availability.is_available ? 'READY FOR WORK' : 'CURRENTLY BUSY'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
+                            )}
+                            <p className="text-body-md" style={{ lineHeight: 1.8, color: '#64748B' }}>
+                                {role === 'hirer' ? (company?.company_description || 'No description provided.') : (profile.bio || 'No bio provided.')}
+                            </p>
+                        </div>
 
-                                {role === 'hirer' && company?.website && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                        <div style={{ background: 'var(--hw-surface-high)', padding: '12px', borderRadius: '12px', color: 'var(--hw-primary)' }}>
-                                            <FiGlobe size={20} />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <label className="text-label-sm" style={{ display: 'block', marginBottom: '2px' }}>Website</label>
-                                            <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-body-md" style={{ fontWeight: 800, color: 'var(--hw-primary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {company.website.replace(/^https?:\/\//, '')}
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </Card>
+                        <RecentReviews reviews={reviews} targetId={targetId} />
 
-                        {/* Pro Badge Card */}
-                        <Card variant="elevated" padding="xl" style={{ borderRadius: '24px', background: 'var(--hw-primary-gradient)', border: 'none' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff' }}>
-                                <FiCheckCircle size={24} strokeWidth={3} />
+                        {pastWorks.length > 0 && (
+                            <div className="ph-section-card">
+                                <div className="ph-title-row">
+                                    <h2 className="ph-title">Work History</h2>
+                                    <span className="ph-edit-link">View All</span>
+                                </div>
                                 <div>
-                                    <h3 className="text-title-md" style={{ color: '#fff', margin: 0 }}>Verified Identity</h3>
-                                    <p className="text-body-sm" style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, margin: 0 }}>Trust Factor 100%</p>
+                                    {pastWorks.map(pw => (
+                                        <div key={pw.id} className="ph-history-item">
+                                            <div className="ph-history-icon"><FiBriefcase size={20} /></div>
+                                            <div className="ph-history-info">
+                                                <div className="ph-history-title">{pw.title}</div>
+                                                <div className="ph-history-date">{new Date(pw.completed_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</div>
+                                            </div>
+                                            <div className="ph-history-payout">₹{pw.payout.toLocaleString()}</div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        </Card>
+                        )}
                     </div>
+
                 </div>
             </PageContainer>
         </div>
     );
 }
-    
 
 export default function ProfileViewPage() {
     return (

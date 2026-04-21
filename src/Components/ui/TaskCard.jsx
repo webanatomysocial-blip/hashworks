@@ -65,10 +65,10 @@ export function TaskCard({
                         </div>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <p style={{ fontSize: '10px', color: '#64748B', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                        <p className="sub-para-text" style={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
                             {topTitleLabel}
                         </p>
-                        <p style={{ fontWeight: 800, fontSize: '17px', color: '#1E293B', lineHeight: '1.2' }}>
+                        <p className="sub-head-text" style={{ fontWeight: 500, color: '#1E293B', lineHeight: '1.2' }}>
                             {title}
                         </p>
                     </div>
@@ -101,14 +101,14 @@ export function TaskCard({
                 >
                     {metrics.map((metric, idx) => (
                         <div key={idx} style={{ overflow: 'hidden' }}>
-                            <p style={{ fontSize: '10px', color: '#1E293B', fontWeight: 800, marginBottom: '4px', textTransform: 'uppercase' }}>
+                            <p className="sub-para-text" style={{ fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase' }}>
                                 {metric.label}
                             </p>
-                            <p style={{ fontWeight: 800, fontSize: metric.valueSize || '14px', color: metric.valueColor || '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <p className="para-text" style={{ fontWeight: 500, color: metric.valueColor || '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {metric.value}
                             </p>
                             {metric.subValue && (
-                                <p style={{ fontSize: '10px', color: '#64748B', marginTop: '2px' }}>
+                                <p className="sub-para-text" style={{ marginTop: '2px' }}>
                                     {metric.subValue}
                                 </p>
                             )}
@@ -123,7 +123,7 @@ export function TaskCard({
                     <div style={{ background: footerMessage.color || '#22C55E', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {footerMessage.icon}
                     </div>
-                    <p style={{ fontSize: '12px', fontWeight: 700, color: footerMessage.color || '#22C55E' }}>
+                    <p className="para-text" style={{ fontWeight: 500, color: footerMessage.color || '#22C55E' }}>
                         {footerMessage.text}
                     </p>
                 </div>

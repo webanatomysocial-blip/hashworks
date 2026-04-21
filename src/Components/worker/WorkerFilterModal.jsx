@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FiX, FiCheck, FiNavigation, FiZap, FiMapPin, FiLayers, FiDollarSign } from "react-icons/fi";
+import { FiX, FiCheck, FiNavigation, FiZap, FiMapPin, FiLayers, FiBriefcase } from "react-icons/fi";
 import "@/css/worker.css";
 
 const CATEGORIES = [
@@ -22,8 +22,7 @@ const MODES = [
 ];
 
 const URGENCY = [
-  { id: 'immediate', label: 'Immediate' },
-  { id: 'high', label: 'High' },
+  { id: 'immediate', label: 'Urgent' },
   { id: 'flexible', label: 'Flexible' }
 ];
 
@@ -115,7 +114,7 @@ export default function WorkerFilterModal({
           {/* Budget Range Section */}
           <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="text-label-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--hw-text-primary)' }}>
-              <FiDollarSign size={14} /> BUDGET RANGE (₹)
+              <FiBriefcase size={14} /> BUDGET RANGE (₹)
             </div>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
@@ -128,7 +127,7 @@ export default function WorkerFilterModal({
                   onChange={(e) => setLocalFilters({ ...localFilters, budget: parseInt(e.target.value) || 0 })}
                 />
               </div>
-              <span style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>—</span>
+              <span style={{ color: 'var(--hw-text-secondary)', fontWeight: 500 }}>—</span>
               <div style={{ flex: 1 }}>
                 <input 
                   type="number" 

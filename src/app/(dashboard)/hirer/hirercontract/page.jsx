@@ -7,8 +7,10 @@ import { useToast } from '@/context/ToastContext';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import SectionHeader from "@/Components/common/SectionHeader";
 import HashLoader from '@/Components/common/HashLoader';
-import { FiSend, FiArrowLeft, FiClock, FiDollarSign, FiUser, FiInfo, FiFile, FiCheckCircle } from 'react-icons/fi';
+import { FiSend, FiArrowLeft, FiClock, FiBriefcase, FiUser, FiInfo, FiFile, FiCheckCircle, FiStar } from 'react-icons/fi';
+import ReviewPanel from '@/Components/common/ReviewPanel';
 import { BsBuilding } from 'react-icons/bs';
+import ConfirmModal from '@/Components/common/ConfirmModal';
 
 function HirerContractContent() {
     const router = useRouter();
@@ -25,6 +27,7 @@ function HirerContractContent() {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const chatRef = useRef(null);
+    const [hasReviewed, setHasReviewed] = useState(false);
 
     // Modal state for Revision
     const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
@@ -34,6 +37,9 @@ function HirerContractContent() {
     const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
     const [disputeReason, setDisputeReason] = useState('');
     const [activeDispute, setActiveDispute] = useState(null);
+    
+    // Approval state
+    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     
     const [submitting, setSubmitting] = useState(false);
 
@@ -101,6 +107,15 @@ function HirerContractContent() {
                     setMessages(messagesData);
                 }
 
+                // Check if already reviewed
+                const { data: reviewData } = await supabase
+                    .from('reviews')
+                    .select('id')
+                    .eq('contract_id', contractId)
+                    .eq('reviewer_id', user.id)
+                    .maybeSingle();
+                if (reviewData) setHasReviewed(true);
+
                 // Listen to new messages
                 const messageListener = supabase.channel(`hirer_contract_${contractId}`)
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `contract_id=eq.${contractId}` }, payload => {
@@ -158,7 +173,7 @@ function HirerContractContent() {
     };
 
     const handleApprove = async () => {
-        if (!confirm('Are you sure you want to approve this work? The contract will be marked as completed.')) return;
+        setIsApproveModalOpen(false);
         try {
             setSubmitting(true);
             
@@ -167,6 +182,29 @@ function HirerContractContent() {
             
             // Update contract status
             await supabase.from('contracts').update({ status: 'completed' }).eq('id', contractId);
+
+            // Update job status to completed (removes from browse & dashboard)
+            if (contract.job_id) {
+                await supabase.from('jobs').update({ status: 'completed' }).eq('id', contract.job_id);
+            }
+
+            // Update profile stats: increment total_jobs_completed for both
+            const { data: workerProf } = await supabase.from('profiles').select('total_jobs_completed').eq('id', contract.worker_id).single();
+            const { data: hirerProf } = await supabase.from('profiles').select('total_jobs_completed').eq('id', contract.hirer_id).single();
+            
+            await Promise.all([
+                supabase.from('profiles').update({ total_jobs_completed: (workerProf?.total_jobs_completed || 0) + 1 }).eq('id', contract.worker_id),
+                supabase.from('profiles').update({ total_jobs_completed: (hirerProf?.total_jobs_completed || 0) + 1 }).eq('id', contract.hirer_id)
+            ]);
+
+            // Log to past_works table for portfolio/stats
+            await supabase.from('past_works').insert({
+                worker_id: contract.worker_id,
+                hirer_id: contract.hirer_id,
+                job_id: contract.job_id,
+                title: contract.jobs?.title || "Untitled Project",
+                payout: contract.agreed_amount || contract.jobs?.budget_max || 0
+            });
 
             // Notify in chat
             await supabase.from('messages').insert({
@@ -252,7 +290,7 @@ function HirerContractContent() {
             await supabase.from('messages').insert({
                 contract_id: contractId,
                 sender_id: currentUser.id,
-                content: `System: A dispute has been raised by the hirer. Reason: ${disputeReason}`
+                content: `System: A dispute has been raised. Reason: ${disputeReason}`
             });
 
             setActiveDispute(newDispute);
@@ -285,40 +323,34 @@ function HirerContractContent() {
     if (activeDispute) actionState = 'disputed';
 
     return (
-        <div style={{ background: 'var(--hw-surface)', minHeight: '100vh' }}>
+        <div className="contract-page-wrapper">
             <SectionHeader title="Review Contract" />
 
             <PageContainer>
-                <div className="contract-detail-grid" style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'minmax(0, 1fr) 340px', 
-                    gap: '24px', 
-                    padding: '24px 20px', 
-                    alignItems: 'start' 
-                }}>
+                <div className="contract-detail-grid">
                     
                     {/* Left Column (Main Content) */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="contract-main-col">
                         
                         <div className="hw-card">
-                            <h2 className="text-title-md hw-mb-16">Job Details</h2>
-                            <p className="text-body-md hw-mb-20">
+                            <h2 className="sub-head-text hw-mb-16">Job Details</h2>
+                            <p className="para-text hw-mb-20">
                                 {job.description || "No description provided."}
                             </p>
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div className="hw-icon-box-sm" style={{ color: 'var(--hw-primary)' }}><FiClock size={18} /></div>
+                                    <div className="hw-icon-box-sm" style={{ color: 'var(--hw-primary)' }}><FiBriefcase size={18} /></div>
                                     <div>
-                                        <p className="text-label-sm">Budget</p>
-                                        <p className="text-title-md" style={{ fontSize: '15px' }}>₹{contract.agreed_amount || job.budget_max || '-'}</p>
+                                        <p className="sub-para-text" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Budget</p>
+                                        <p className="sub-head-text" style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>₹{(contract.agreed_amount || job.budget_max || 0).toLocaleString()}</p>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <div className="hw-icon-box-sm" style={{ color: 'var(--hw-warning)' }}><FiClock size={18} /></div>
                                     <div>
-                                        <p className="text-label-sm">Timeline</p>
-                                        <p className="text-title-md" style={{ fontSize: '15px' }}>{job.estimated_days ? `${job.estimated_days} Days` : 'Flexible'}</p>
+                                        <p className="sub-para-text" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Timeline</p>
+                                        <p className="sub-head-text" style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>{job.estimated_days ? `${job.estimated_days} Days` : 'Flexible'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -328,7 +360,7 @@ function HirerContractContent() {
                             className="hw-card hw-card-interactive" 
                             onClick={() => router.push(`/profile/view?id=${worker?.id}`)}
                         >
-                            <h2 className="text-title-md hw-mb-16">Talent Info</h2>
+                            <h2 className="sub-head-text hw-mb-16">Talent Info</h2>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 {worker?.avatar_url ? (
                                     <img src={worker.avatar_url} alt="avatar" style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover' }} />
@@ -338,31 +370,31 @@ function HirerContractContent() {
                                     </div>
                                 )}
                                 <div>
-                                    <h3 className="text-title-md" style={{ fontSize: '16px' }}>{worker?.first_name} {worker?.last_name}</h3>
-                                    <p className="text-body-md" style={{ fontSize: '13px' }}>{worker?.city || 'No location'}</p>
+                                    <h3 className="sub-head-text" style={{ fontSize: '16px' }}>{worker?.first_name} {worker?.last_name}</h3>
+                                    <p className="para-text" style={{ fontSize: '13px' }}>{worker?.city || 'No location'}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Right Column (Action Panel) */}
-                    <div className="action-panel-container" style={{ position: 'sticky', top: '80px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="action-panel-container">
                         <div className="hw-card" style={{ boxShadow: 'var(--hw-shadow-medium)' }}>
-                            <h3 className="text-title-md hw-mb-12">Submission Review</h3>
+                            <h3 className="sub-head-text hw-mb-12">Submission Review</h3>
 
                             {actionState === 'waiting_for_submission' && (
                                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                                     <div className="hw-icon-box" style={{ margin: '0 auto 12px', background: 'var(--hw-surface-low)', color: 'var(--hw-text-secondary)' }}>
                                         <FiClock size={24} />
                                     </div>
-                                    <p className="text-body-md" style={{ fontWeight: 600 }}>Waiting for first submission from worker.</p>
+                                    <p className="para-text" style={{ fontWeight: 500 }}>Waiting for first submission from worker.</p>
                                 </div>
                             )}
 
                             {latestSubmission && actionState !== 'waiting_for_submission' && (
                                 <div style={{ background: 'var(--hw-surface-low)', borderRadius: 'var(--hw-radius-md)', padding: '16px', marginBottom: '20px' }}>
-                                    <p className="text-label-sm hw-mb-8">Latest Note From Worker</p>
-                                    <p className="text-body-md hw-mb-16" style={{ color: 'var(--hw-text-primary)' }}>{latestSubmission.message}</p>
+                                    <p className="sub-para-text hw-mb-8" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Latest Note From Worker</p>
+                                    <p className="para-text hw-mb-16" style={{ color: 'var(--hw-text-primary)' }}>{latestSubmission.message}</p>
                                     
                                     {latestSubmission.file_url && (
                                         <a href={latestSubmission.file_url} target="_blank" rel="noreferrer" className="hw-btn hw-btn-ghost hw-w-full" style={{ height: '40px', fontSize: '13px', border: '1px solid var(--hw-surface-high)', background: '#fff' }}>
@@ -384,7 +416,7 @@ function HirerContractContent() {
                                 {actionState === 'review' && (
                                     <>
                                         <button 
-                                            onClick={handleApprove}
+                                            onClick={() => setIsApproveModalOpen(true)}
                                             disabled={submitting}
                                             className="hw-btn hw-btn-primary hw-w-full"
                                             style={{ background: 'var(--hw-success)', boxShadow: 'none' }}
@@ -414,24 +446,23 @@ function HirerContractContent() {
                                     </button>
                                 )}
                             </div>
+
+                            {actionState === 'approved' && !hasReviewed && (
+                                <ReviewPanel 
+                                    contractId={contractId}
+                                    reviewerId={currentUser?.id}
+                                    revieweeId={contract?.worker_id}
+                                    role="Hirer"
+                                    onSubmitted={() => setHasReviewed(true)}
+                                />
+                            )}
                         </div>
                     </div>
 
                 </div>
             </PageContainer>
 
-            {/* Responsive CSS */}
-            <style jsx global>{`
-                @media (max-width: 900px) {
-                    .contract-detail-grid {
-                        grid-template-columns: 1fr !important;
-                    }
-                    .action-panel-container {
-                        position: static !important;
-                        margin-top: 0;
-                    }
-                }
-            `}</style>
+
 
             {/* Revision Modal */}
             {isRevisionModalOpen && (
@@ -519,6 +550,18 @@ function HirerContractContent() {
                     </div>
                 </div>
             )}
+            {/* Approve Confirmation Modal */}
+            <ConfirmModal
+                isOpen={isApproveModalOpen}
+                onClose={() => setIsApproveModalOpen(false)}
+                onConfirm={handleApprove}
+                title="Approve Work?"
+                message="Are you sure you want to approve this work? The contract will be marked as completed and the funds will be released."
+                confirmText="Yes, Approve"
+                cancelText="Cancel"
+                variant="success"
+                loading={submitting}
+            />
         </div>
     );
 }

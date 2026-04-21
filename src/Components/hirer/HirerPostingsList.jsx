@@ -12,7 +12,7 @@ export default function HirerPostingsList({ jobs, onJobClick, onAddClick }) {
     <div className="wh-section" style={{ padding: '0 16px' }}>
       <div className="hw-flex hw-justify-between hw-items-end hw-mb-20">
         <div>
-          <h2 className="text-display-sm" style={{ fontWeight: 800, fontSize: '24px' }}>Active Postings</h2>
+          <h2 className="text-display-sm" style={{ fontWeight: 500, fontSize: '24px' }}>Active Postings</h2>
           <p className="text-body-md hw-mt-2">Manage your current tasks and applicants</p>
         </div>
         <button 
@@ -30,7 +30,7 @@ export default function HirerPostingsList({ jobs, onJobClick, onAddClick }) {
              background: '#c7f284',
              color: '#0F172A',
              borderRadius: '16px',
-             fontWeight: 800
+             fontWeight: 500
            }}
         >
           <FiPlus size={20} /> <span>Post New</span>
@@ -65,17 +65,17 @@ export default function HirerPostingsList({ jobs, onJobClick, onAddClick }) {
               style={{ minWidth: '280px', borderRadius: '20px' }}
             >
               <div className="hw-flex hw-justify-between hw-items-start hw-mb-12">
-                <Badge variant={job.urgency === 'immediate' ? 'urgent' : 'waiting'}>
-                  {job.urgency || 'Flexible'}
+                <Badge variant={job.urgency === 'immediate' ? 'urgent' : 'neutral'}>
+                  {job.urgency === 'immediate' ? 'Urgent' : 'Flexible'}
                 </Badge>
                 <div style={{ color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <FiUsers size={14} />
-                    <span style={{ fontSize: '12px', fontWeight: 800 }}>{job.application_count || 0}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 500 }}>{job.application_count || 0}</span>
                 </div>
               </div>
               <h3 className="text-title-md hw-line-clamp-1 hw-mb-8">{job.title}</h3>
               <div className="hw-flex hw-justify-between hw-items-center hw-mt-auto">
-                <span className="text-label-sm" style={{ fontWeight: 800, color: '#4f74ff' }}>
+                <span className="text-label-sm" style={{ fontWeight: 500, color: '#4f74ff' }}>
                   ₹{(job.budget_max || 0).toLocaleString()}
                 </span>
                 <FiChevronRight size={18} style={{ color: '#94a3b8' }} />

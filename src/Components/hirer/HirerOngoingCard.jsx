@@ -27,14 +27,14 @@ export default function HirerOngoingCard({ contract, onViewContract, onChat }) {
         </div>
         <button 
             onClick={onViewContract}
-            style={{ padding: '10px 18px', borderRadius: '14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontSize: '12px', fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(10px)' }}
+            style={{ padding: '10px 18px', borderRadius: '14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontSize: '12px', fontWeight: 500, cursor: 'pointer', backdropFilter: 'blur(10px)' }}
         >
           View Workspace
         </button>
       </div>
 
       <div className="hw-flex hw-items-center hw-gap-16" style={{ background: 'white', padding: '16px', borderRadius: '22px', marginBottom: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
-          <div className="wh-avatar-placeholder" style={{ width: '52px', height: '52px', borderRadius: '18px', fontSize: '18px', background: '#f1f5f9', color: '#1C4DFF', fontWeight: 900 }}>
+          <div className="wh-avatar-placeholder" style={{ width: '52px', height: '52px', borderRadius: '18px', fontSize: '18px', background: '#f1f5f9', color: '#1C4DFF', fontWeight: 500 }}>
             {worker.avatar_url ? (
               <img src={worker.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '18px' }} />
             ) : (
@@ -43,7 +43,7 @@ export default function HirerOngoingCard({ contract, onViewContract, onChat }) {
           </div>
           <div style={{ flex: 1 }}>
              <p className="text-label-sm" style={{ color: '#64748B', marginBottom: '4px', fontSize: '10px' }}>WORKING ON TASK</p>
-             <h4 style={{ color: '#0F172A', fontWeight: 800, fontSize: '17px', margin: 0 }}>{worker.first_name || 'Anonymous'} {worker.last_name?.[0] ? `${worker.last_name[0]}.` : ''}</h4>
+             <h4 style={{ color: '#0F172A', fontWeight: 500, fontSize: '17px', margin: 0 }}>{worker.first_name || 'Anonymous'} {worker.last_name?.[0] ? `${worker.last_name[0]}.` : ''}</h4>
           </div>
           <button 
             onClick={onChat}

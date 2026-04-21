@@ -154,13 +154,12 @@ export default function BrowseJobsPage() {
         <div style={{ padding: '24px 20px' }}>
           {/* Search Row */}
           <div style={{ display: 'flex', gap: 'var(--hw-space-12)', marginBottom: 'var(--hw-space-24)' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <FiSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--hw-text-secondary)' }} />
+            <div className="mp-search-container" style={{ flex: 1, marginBottom: 0 }}>
+              <FiSearch className="mp-search-icon" />
               <input
                 type="text"
-                className="hw-input"
+                className="mp-search-input"
                 placeholder="Search Roles..."
-                style={{ paddingLeft: '48px' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -182,23 +181,23 @@ export default function BrowseJobsPage() {
           </div>
 
           {/* Quick Category Filters */}
-          <div className="hw-urgent-scroll" style={{ marginBottom: 'var(--hw-space-32)' }}>
-            <Button 
-                variant={filters.location_type === "remote" ? "primary" : "ghost"} size="sm"
-                className="hw-font-bold"
+          <div className="mp-tabs" style={{ marginBottom: '32px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', justifyContent: 'flex-start' }}>
+            <button 
+                className={`mp-tab ${filters.location_type === "remote" ? 'active' : ''}`}
                 onClick={() => setFilters({ ...filters, location_type: filters.location_type === "remote" ? "all" : "remote" })}
+                style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
             >
               Remote
-            </Button>
+            </button>
             {DB_CATEGORIES.map((cat) => (
-              <Button 
-                key={cat} size="sm"
-                variant={filters.category === cat.toLowerCase() ? "primary" : "ghost"}
-                className="hw-font-bold"
+              <button 
+                key={cat}
+                className={`mp-tab ${filters.category === cat.toLowerCase() ? 'active' : ''}`}
                 onClick={() => setFilters({ ...filters, category: filters.category === cat.toLowerCase() ? "all" : cat.toLowerCase() })}
+                style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
               >
                 {cat}
-              </Button>
+              </button>
             ))}
           </div>
 

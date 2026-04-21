@@ -7,7 +7,8 @@ import { useToast } from '@/context/ToastContext';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import SectionHeader from "@/Components/common/SectionHeader";
 import HashLoader from '@/Components/common/HashLoader';
-import { FiSend, FiPaperclip, FiArrowLeft, FiClock, FiDollarSign, FiUser, FiInfo } from 'react-icons/fi';
+import { FiSend, FiPaperclip, FiArrowLeft, FiClock, FiBriefcase, FiUser, FiInfo, FiStar } from 'react-icons/fi';
+import ReviewPanel from '@/Components/common/ReviewPanel';
 import { BsBuilding } from 'react-icons/bs';
 
 function WorkerContractContent() {
@@ -25,6 +26,7 @@ function WorkerContractContent() {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const chatRef = useRef(null);
+    const [hasReviewed, setHasReviewed] = useState(false);
 
     // Modal state
     const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
@@ -92,6 +94,15 @@ function WorkerContractContent() {
                 if (messagesData) {
                     setMessages(messagesData);
                 }
+
+                // Check if already reviewed
+                const { data: reviewData } = await supabase
+                    .from('reviews')
+                    .select('id')
+                    .eq('contract_id', contractId)
+                    .eq('reviewer_id', user.id)
+                    .maybeSingle();
+                if (reviewData) setHasReviewed(true);
 
                 // Listen to new messages
                 const messageListener = supabase.channel('contract_messages')
@@ -229,48 +240,42 @@ function WorkerContractContent() {
     }
 
     return (
-        <div style={{ background: 'var(--hw-surface)', minHeight: '100vh' }}>
+        <div className="contract-page-wrapper">
             <SectionHeader title="Contract Details" />
 
             <PageContainer>
-                <div className="contract-detail-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1fr) 340px',
-                    gap: '24px',
-                    padding: '24px 20px',
-                    alignItems: 'start'
-                }}>
+                <div className="contract-detail-grid">
 
                     {/* Left Column (Main Content) */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="contract-main-col">
 
                         {/* Job Details Section */}
                         <div className="hw-card">
-                            <h2 className="text-title-md hw-mb-16">Job Details</h2>
-                            <p className="text-body-md hw-mb-20">
+                            <h2 className="sub-head-text hw-mb-16">Job Details</h2>
+                            <p className="para-text hw-mb-20">
                                 {job.description || "No description provided."}
                             </p>
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div className="hw-icon-box-sm" style={{ color: 'var(--hw-primary)' }}><FiClock size={18} /></div>
+                                    <div className="hw-icon-box-sm" style={{ color: 'var(--hw-primary)' }}><FiBriefcase size={18} /></div>
                                     <div>
-                                        <p className="text-label-sm">Budget</p>
-                                        <p className="text-title-md" style={{ fontSize: '15px' }}>₹{contract.agreed_amount || job.budget_max || '-'}</p>
+                                        <p className="sub-para-text" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Budget</p>
+                                        <p className="sub-head-text" style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>₹{(contract.agreed_amount || job.budget_max || 0).toLocaleString()}</p>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <div className="hw-icon-box-sm" style={{ color: 'var(--hw-warning)' }}><FiClock size={18} /></div>
                                     <div>
-                                        <p className="text-label-sm">Timeline</p>
-                                        <p className="text-title-md" style={{ fontSize: '15px' }}>{job.estimated_days ? `${job.estimated_days} Days` : 'Flexible'}</p>
+                                        <p className="sub-para-text" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Timeline</p>
+                                        <p className="sub-head-text" style={{ fontSize: '18px', fontWeight: 500, margin: 0 }}>{job.estimated_days ? `${job.estimated_days} Days` : 'Flexible'}</p>
                                     </div>
                                 </div>
                             </div>
 
                             {job.reference_image_url && (
                                 <div style={{ marginTop: '24px' }}>
-                                    <h4 className="text-label-sm hw-mb-8">Reference Material</h4>
+                                    <h4 className="sub-para-text hw-mb-8" style={{ textTransform: 'uppercase', fontWeight: 500 }}>Reference Material</h4>
                                     <img src={job.reference_image_url} alt="Reference" style={{ maxWidth: '100%', borderRadius: 'var(--hw-radius-md)', border: '1px solid var(--hw-surface-high)' }} />
                                 </div>
                             )}
@@ -281,7 +286,7 @@ function WorkerContractContent() {
                             className="hw-card hw-card-interactive"
                             onClick={() => router.push(`/profile/view?id=${hirer?.id}`)}
                         >
-                            <h2 className="text-title-md hw-mb-16">Hirer Info</h2>
+                            <h2 className="sub-head-text hw-mb-16">Hirer Info</h2>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 {hirer?.avatar_url ? (
                                     <img src={hirer.avatar_url} alt="avatar" style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover' }} />
@@ -291,8 +296,8 @@ function WorkerContractContent() {
                                     </div>
                                 )}
                                 <div>
-                                    <h3 className="text-title-md" style={{ fontSize: '16px' }}>{hirer?.first_name} {hirer?.last_name}</h3>
-                                    <p className="text-body-md" style={{ fontSize: '13px' }}>{hirer?.city || 'No location'}</p>
+                                    <h3 className="sub-head-text" style={{ fontSize: '16px', fontWeight: 500 }}>{hirer?.first_name} {hirer?.last_name}</h3>
+                                    <p className="para-text" style={{ fontSize: '13px' }}>{hirer?.city || 'No location'}</p>
                                 </div>
                             </div>
 
@@ -300,8 +305,8 @@ function WorkerContractContent() {
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '20px', background: 'var(--hw-surface-low)', padding: '16px', borderRadius: 'var(--hw-radius-md)' }}>
                                     <BsBuilding size={18} color="var(--hw-text-secondary)" style={{ flexShrink: 0, marginTop: '2px' }} />
                                     <div>
-                                        <h4 className="text-title-md" style={{ fontSize: '14px' }}>{hirerCompany.company_name}</h4>
-                                        <p className="text-body-md" style={{ fontSize: '12px' }}>{hirerCompany.industry || 'Company'}</p>
+                                        <h4 className="sub-head-text" style={{ fontSize: '14px', fontWeight: 500 }}>{hirerCompany.company_name}</h4>
+                                        <p className="para-text" style={{ fontSize: '12px' }}>{hirerCompany.industry || 'Company'}</p>
                                     </div>
                                 </div>
                             )}
@@ -309,10 +314,10 @@ function WorkerContractContent() {
                     </div>
 
                     {/* Right Column (Action Panel) */}
-                    <div className="action-panel-container" style={{ position: 'sticky', top: '80px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="action-panel-container">
                         <div className="hw-card" style={{ boxShadow: 'var(--hw-shadow-medium)' }}>
-                            <h3 className="text-title-md hw-mb-8">Action Panel</h3>
-                            <p className="text-body-md hw-mb-24" style={{ fontSize: '13px' }}>Manage your work submission and communicate with the hirer.</p>
+                            <h3 className="sub-head-text hw-mb-8">Action Panel</h3>
+                            <p className="para-text hw-mb-24" style={{ fontSize: '13px' }}>Manage your work submission and communicate with the hirer.</p>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <button
@@ -344,11 +349,21 @@ function WorkerContractContent() {
                                     </button>
                                 )}
                             </div>
+
+                            {actionState === 'approved' && !hasReviewed && (
+                                <ReviewPanel 
+                                    contractId={contractId}
+                                    reviewerId={currentUser?.id}
+                                    revieweeId={contract?.hirer_id}
+                                    role="Worker"
+                                    onSubmitted={() => setHasReviewed(true)}
+                                />
+                            )}
                         </div>
 
                         {latestSubmission && actionState === 'resubmit' && (
                             <div className="hw-card" style={{ background: '#FFFBEB', border: '1px solid #FEF3C7' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--hw-warning)', fontWeight: 700, marginBottom: '8px', fontSize: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--hw-warning)', fontWeight: 500, marginBottom: '8px', fontSize: '14px' }}>
                                     <FiInfo /> Revision Requested
                                 </div>
                                 <p className="text-body-md" style={{ fontSize: '13px', color: '#92400E' }}>The hirer has requested revisions. Check your messages for feedback.</p>
@@ -359,40 +374,17 @@ function WorkerContractContent() {
                 </div>
             </PageContainer>
 
-            {/* Response CSS for mobile stacking */}
-            <style jsx global>{`
-                @media (max-width: 900px) {
-                    .contract-detail-grid {
-                        grid-template-columns: 1fr !important;
-                    }
-                    .action-panel-container {
-                        position: static !important;
-                        margin-top: 0;
-                    }
-                    /* Optional: Fixed bottom mobile style if user wants specific fixed position */
-                    /* 
-                    .action-card {
-                        position: fixed;
-                        bottom: 0;
-                        left: 0;
-                        right: 0;
-                        z-index: 100;
-                        border-radius: 20px 20px 0 0 !important;
-                        box-shadow: 0 -8px 24px rgba(0,0,0,0.1) !important;
-                    }
-                    */
-                }
-            `}</style>
+
 
             {/* Submission Modal */}
             {isSubmitModalOpen && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div style={{ background: '#fff', borderRadius: '24px', width: '100%', maxWidth: '500px', padding: '32px', position: 'relative' }}>
-                        <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '24px', color: '#0F172A' }}>{actionState === 'resubmit' ? 'Resubmit Work' : 'Submit Work'}</h2>
+                        <h2 style={{ fontSize: '20px', fontWeight: 500, marginBottom: '24px', color: '#0F172A' }}>{actionState === 'resubmit' ? 'Resubmit Work' : 'Submit Work'}</h2>
 
                         <form onSubmit={handleSubmission}>
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Submission Message / Details</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '8px' }}>Submission Message / Details</label>
                                 <textarea
                                     required
                                     rows={4}
@@ -404,7 +396,7 @@ function WorkerContractContent() {
                             </div>
 
                             <div style={{ marginBottom: '32px' }}>
-                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Attachment (Optional)</label>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '8px' }}>Attachment (Optional)</label>
                                 <div style={{ position: 'relative', overflow: 'hidden', border: '2px dashed #CBD5E1', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC' }}>
                                     <input
                                         type="file"
@@ -413,7 +405,7 @@ function WorkerContractContent() {
                                     />
                                     <div style={{ color: '#64748B', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                         <FiPaperclip size={24} />
-                                        <span style={{ fontSize: '14px', fontWeight: 600 }}>{submissionFile ? submissionFile.name : 'Click or drop a file directly'}</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 500 }}>{submissionFile ? submissionFile.name : 'Click or drop a file directly'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -422,14 +414,14 @@ function WorkerContractContent() {
                                 <button
                                     type="button"
                                     onClick={() => setIsSubmitModalOpen(false)}
-                                    style={{ flex: 1, padding: '14px', borderRadius: '100px', border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}
+                                    style={{ flex: 1, padding: '14px', borderRadius: '100px', border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontWeight: 500, cursor: 'pointer' }}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    style={{ flex: 1, padding: '14px', borderRadius: '100px', border: 'none', background: '#1C4DFF', color: '#fff', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
+                                    style={{ flex: 1, padding: '14px', borderRadius: '100px', border: 'none', background: '#1C4DFF', color: '#fff', fontWeight: 500, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
                                 >
                                     {submitting ? 'Submitting...' : 'Confirm Submission'}
                                 </button>

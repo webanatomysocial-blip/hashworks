@@ -7,6 +7,8 @@ ADD COLUMN IF NOT EXISTS longitude double precision;
 CREATE INDEX IF NOT EXISTS jobs_lat_lng_idx ON public.jobs (latitude, longitude);
 
 -- 3. Create Nearby Jobs RPC Function (Haversine Formula)
+DROP FUNCTION IF EXISTS get_nearby_jobs(double precision, double precision, double precision, text, text, text, text);
+
 CREATE OR REPLACE FUNCTION get_nearby_jobs(
   user_lat double precision,
   user_lng double precision,
@@ -32,7 +34,9 @@ RETURNS TABLE (
   longitude double precision,
   distance double precision,
   hirer_first_name text,
-  hirer_last_name text
+  hirer_last_name text,
+  hirer_avatar_url text,
+  reference_image_url text
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -58,7 +62,9 @@ BEGIN
       ))
     )) AS distance,
     p.first_name as hirer_first_name,
-    p.last_name as hirer_last_name
+    p.last_name as hirer_last_name,
+    p.avatar_url as hirer_avatar_url,
+    j.reference_image_url
   FROM jobs j
   JOIN profiles p ON j.hirer_id = p.id
   WHERE j.status = 'active'

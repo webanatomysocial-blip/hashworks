@@ -7,7 +7,8 @@ import { Card } from "@/Components/ui/Card";
 import { Badge } from "@/Components/ui/Badge";
 import { 
   FiSearch, FiX, FiHeart, FiBookmark, FiMapPin, 
-  FiClock, FiTrendingUp, FiCheckCircle, FiChevronRight 
+  FiClock, FiTrendingUp, FiCheckCircle, FiChevronRight,
+  FiBriefcase
 } from "react-icons/fi";
 import { Button } from "@/Components/ui/Button";
 import { supabase } from "@/lib/supabase";
@@ -127,8 +128,10 @@ export default function DiscoveryStack({ jobs, onEmpty }) {
                 {/* Top Row: Time & Urgency */}
                 <div className="hw-discovery-badge-row">
                   <div className="hw-time-badge">{timeAgo(job.created_at)}</div>
-                  {job.urgency === 'immediate' && (
+                  {job.urgency === 'immediate' ? (
                     <Badge variant="urgent" showDot>URGENT</Badge>
+                  ) : (
+                    <Badge variant="active" showDot>FLEXIBLE</Badge>
                   )}
                 </div>
 
@@ -174,7 +177,7 @@ export default function DiscoveryStack({ jobs, onEmpty }) {
                   </div>
 
                   <div className="hw-swipe-hint">
-                    SWIPE TO EXPLORE <FiChevronRight />
+                    SWIPE<FiChevronRight />
                   </div>
                 </div>
 

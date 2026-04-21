@@ -9,6 +9,8 @@ export const EmptyState = ({
     description, 
     icon, 
     action,
+    actionLabel,
+    onAction,
     style = {} 
 }) => {
     return (
@@ -17,33 +19,48 @@ export const EmptyState = ({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '48px 24px',
+            padding: '40px 24px',
             textAlign: 'center',
-            backgroundColor: 'var(--color-surface)',
-            borderRadius: 'var(--radius-xl)',
-            border: '2px dashed var(--color-border)',
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+            border: '1px solid rgba(0,0,0,0.02)',
             ...style
         }}>
             {icon && (
                 <div style={{ 
-                    marginBottom: '16px', 
-                    color: 'var(--color-text-muted)',
-                    opacity: 0.5
+                    margin: '0 auto 16px', 
+                    background: '#f1f5f9', 
+                    color: '#64748B', 
+                    borderRadius: '16px', 
+                    width: '48px', 
+                    height: '48px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
                 }}>
-                    {icon}
+                    {React.cloneElement(icon, { size: icon.props.size || 24 })}
                 </div>
             )}
-            <h3 className="text-title-md" style={{ marginBottom: '8px', color: 'var(--color-text-main)' }}>
+            <h3 style={{ marginBottom: '8px', color: '#0F172A', fontWeight: 600, fontSize: '18px' }}>
                 {title}
             </h3>
             {description && (
-                <p className="text-body-md" style={{ color: 'var(--color-text-muted)', maxWidth: '300px', margin: '0 auto' }}>
+                <p style={{ color: '#64748B', maxWidth: '300px', margin: '0 auto', fontSize: '14px' }}>
                     {description}
                 </p>
             )}
-            {action && (
+            {(action || actionLabel) && (
                 <div style={{ marginTop: '24px' }}>
-                    {action}
+                    {action || (
+                        <button 
+                            className="hw-btn hw-btn-primary" 
+                            onClick={onAction}
+                            style={{ borderRadius: '16px', fontSize: '14px', height: '42px', padding: '0 24px' }}
+                        >
+                            {actionLabel}
+                        </button>
+                    )}
                 </div>
             )}
         </div>

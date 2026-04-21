@@ -12,16 +12,19 @@ import ConfirmModal from '@/Components/common/ConfirmModal';
 import HashLoader from '@/Components/common/HashLoader';
 import SectionHeader from '@/Components/common/SectionHeader';
 import '@/css/hirer.css';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { TaskCard } from '@/Components/ui/TaskCard';
 
-export default function ManagePostings() {
+function ManagePostingsContent() {
     const router = useRouter();
     const [jobs, setJobs] = useState([]);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('All');
+    const searchParams = useSearchParams();
+    const tabParam = searchParams.get('tab');
+    const [activeTab, setActiveTab] = useState(tabParam || 'All');
     const [openDropdownId, setOpenDropdownId] = useState(null);
 
     /* Delete Modal State */
@@ -143,7 +146,7 @@ export default function ManagePostings() {
             <SectionHeader title="Manage Postings" />
 
             <PageContainer>
-                <div className="wh-detail-scroll-content" style={{ paddingTop: 'var(--hw-space-24)' }}>
+                <div className="wh-detail-scroll-content" style={{ padding: '24px 20px' }}>
                     <div className="mp-info-alert" style={{ marginTop: 0 }}>
                         <FiInfo className="mp-info-icon" />
                         <div className="mp-info-content">
@@ -183,31 +186,37 @@ export default function ManagePostings() {
                     {/* Postings List */}
                     <div className="mp-postings-list">
                         {filteredJobs.length === 0 ? (
-                            <div className="hd-empty" style={{ textAlign: 'center', padding: '40px 0', color: 'var(--hw-text-secondary)' }}>
-                                No postings found.
-                            </div>
+                            <Card variant="elevated" padding="xl" className="hw-text-center" style={{ borderRadius: '24px' }}>
+                                 <div className="hw-icon-box hw-mb-16" style={{ margin: '0 auto', background: '#f1f5f9', color: '#64748B', borderRadius: '16px', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                     <BsBriefcase size={24} />
+                                 </div>
+                                 <h3 className="sub-head-text">No postings found.</h3>
+                                 <p className="para-text">You don't have any postings matching this category.</p>
+                            </Card>
                         ) : (
-                            filteredJobs.map(job => {
-                                const appCount = applications.filter(a => a.job_id === job.id).length;
-                                return (
-                                    <div key={job.id} style={{ marginBottom: '24px' }}>
-                                        <TaskCard
-                                            topTitleLabel="DATE POSTED"
-                                            title={job.title}
-                                            thumbnailUrl={job.reference_image_url}
-                                            thumbnailFallbackIcon={<BsBriefcase size={28} color="#64748B" />}
-                                            badge={{ 
-                                                text: job.status === 'active' && activeContract ? 'ONGOING' : job.status.toUpperCase(), 
-                                                variant: job.status === 'active' && activeContract ? 'waiting' : job.status === 'active' ? 'success' : job.status === 'closed' ? 'closed' : 'neutral'
-                                            }}
+                                filteredJobs.map(job => {
+                                    const appCount = applications.filter(a => a.job_id === job.id).length;
+                                    const activeContract = job.contracts?.find(c => c.status === 'active');
+                                    
+                                    return (
+                                        <div key={job.id} style={{ marginBottom: '24px' }}>
+                                            <TaskCard
+                                                topTitleLabel="DATE POSTED"
+                                                title={job.title}
+                                                thumbnailUrl={job.reference_image_url}
+                                                thumbnailFallbackIcon={<BsBriefcase size={28} color="#64748B" />}
+                                                badge={{ 
+                                                    text: job.status === 'active' && activeContract ? 'Ongoing' : job.status, 
+                                                    variant: job.status === 'active' && activeContract ? 'waiting' : job.status === 'active' ? 'success' : job.status === 'closed' ? 'closed' : 'neutral'
+                                                }}
                                             metrics={
                                                 activeTab === 'Ongoing' ? [
-                                                    { label: 'STATUS', value: 'IN PROGRESS', valueColor: '#F59E0B', valueSize: '16px' },
+                                                    { label: 'STATUS', value: 'In Progress', valueColor: '#F59E0B', valueSize: '16px' },
                                                     { label: 'LOCATION', value: job.location_type === 'remote' ? 'Remote' : (job.city || 'Anywhere') },
                                                     { label: 'PAYOUT', value: job.budget_max ? `₹${job.budget_max.toLocaleString()}` : (job.budget_min ? `₹${job.budget_min.toLocaleString()}` : '-') }
                                                 ] : [
                                                     { label: 'APPLICANTS', value: appCount.toString(), valueColor: 'var(--hw-primary)', valueSize: '16px' },
-                                                    { label: 'LOCATION', value: job.location_type === 'remote' ? 'Remote' : (job.city || 'Anywhere') },
+                                                    { label: 'URGENCY', value: job.urgency === 'immediate' ? 'Urgent' : 'Flexible', valueColor: job.urgency === 'immediate' ? '#FF6A3D' : '#64748B' },
                                                     { label: 'PAYOUT', value: job.budget_max ? `₹${job.budget_max.toLocaleString()}` : (job.budget_min ? `₹${job.budget_min.toLocaleString()}` : '-') }
                                                 ]
                                             }
@@ -217,14 +226,16 @@ export default function ManagePostings() {
                                                     {activeTab === 'Ongoing' && activeContract ? (
                                                         <button 
                                                             onClick={() => router.push(`/hirer/hirercontract?id=${activeContract.id}`)}
-                                                            style={{ flex: 1, background: 'var(--hw-primary)', color: '#fff', border: 'none', borderRadius: '22px', height: '48px', fontWeight: 800, cursor: 'pointer', fontSize: '14px' }}
+                                                            className="hw-btn hw-btn-primary"
+                                                            style={{ flex: 1, borderRadius: '22px', height: '48px' }}
                                                         >
                                                             View Contract Action
                                                         </button>
                                                     ) : (
                                                         <button 
                                                             onClick={() => activeContract ? router.push(`/hirer/hirercontract?id=${activeContract.id}`) : router.push(`/hirer/postings/review?id=${job.id}`)}
-                                                            style={{ flex: 1, background: 'var(--hw-primary)', color: '#fff', border: 'none', borderRadius: '22px', height: '48px', fontWeight: 800, cursor: 'pointer', fontSize: '14px' }}
+                                                            className="hw-btn hw-btn-primary"
+                                                            style={{ flex: 1, borderRadius: '22px', height: '48px' }}
                                                         >
                                                             {activeContract ? 'View Contract' : 'Review Applicants'}
                                                         </button>
@@ -284,5 +295,13 @@ export default function ManagePostings() {
                 </div>
             </PageContainer>
         </div>
+    );
+}
+
+export default function ManagePostings() {
+    return (
+        <Suspense fallback={<HashLoader text="" />}>
+            <ManagePostingsContent />
+        </Suspense>
     );
 }

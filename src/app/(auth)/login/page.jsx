@@ -84,7 +84,7 @@ export default function Login() {
                     <div className="auth-input-group">
                         <div className="auth-label-row">
                             <label className="auth-label">Password</label>
-                            <Link href="/forgot-password" style={{ fontSize: '12px', fontWeight: 800, color: '#4f74ff', textDecoration: 'none', textTransform: 'uppercase' }}>
+                            <Link href="/forgot-password" style={{ fontSize: '12px', fontWeight: 500, color: '#4f74ff', textDecoration: 'none', textTransform: 'uppercase' }}>
                                 Forgot?
                             </Link>
                         </div>
@@ -111,7 +111,7 @@ export default function Login() {
                     </div>
 
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
-                        {loading ? <HashLoader text="" /> : (
+                        {loading ? <HashLoader text="" inline /> : (
                             <>
                                 Sign In <FiArrowRight size={20} />
                             </>
@@ -139,29 +139,10 @@ export default function Login() {
                 </div>
             </div>
 
-            <div className="auth-value-section">
-                <div className="auth-value-card">
-                    <div className="auth-value-icon-box" style={{ background: '#C8FF2C' }}>
-                        <div style={{ width: '20px', height: '20px', background: '#0F172A', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
-                    </div>
-                    <div className="auth-value-content">
-                        <span className="auth-value-label">Fastest Onboarding</span>
-                        <span className="auth-value-title">Start in <span>2 mins</span></span>
-                    </div>
-                </div>
-                <div className="auth-value-card" style={{ background: '#EFF6FF' }}>
-                    <div className="auth-value-icon-box" style={{ background: '#FCA5A5' }}>
-                        <div style={{ width: '18px', height: '18px', border: '3px solid #0F172A', borderRadius: '4px' }}></div>
-                    </div>
-                    <div className="auth-value-content">
-                        <span className="auth-value-label">Earnings Sync</span>
-                        <span className="auth-value-title">Real-time <span>₹ updates</span></span>
-                    </div>
-                </div>
-            </div>
+
 
             <footer style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '20px', textAlign: 'center' }}>
-                <p style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 ,padding:"0 20px"}}>
+                <p style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 500 ,padding:"0 20px"}}>
                     By continuing, you agree to Hashworks <Link href="/terms" style={{ color: '#64748b' }}>Terms of Service</Link> and <Link href="/privacy" style={{ color: '#64748b' }}>Privacy Policy</Link>.
                 </p>
             </footer>

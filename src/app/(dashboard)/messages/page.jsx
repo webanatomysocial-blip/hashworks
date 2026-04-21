@@ -11,6 +11,7 @@ import '@/css/dashboard.css';
 
 import { Input } from "@/Components/ui/Input";
 import { Button } from "@/Components/ui/Button";
+import { Badge } from "@/Components/ui/Badge";
 
 function MessagesContent() {
     const searchParams = useSearchParams();
@@ -72,7 +73,8 @@ function MessagesContent() {
                     unreadCount: unreadCount,
                     otherPartyId: otherParty?.id,
                     lastSenderId: lastMsg?.sender_id,
-                    status: contract.status
+                    status: contract.status,
+                    isHirer: isHirer
                 };
             }));
 
@@ -175,52 +177,31 @@ function MessagesContent() {
     if (loading) return <div style={{ padding: '80px', textAlign: 'center' }}><HashLoader text="" /></div>;
 
     return (
-        <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--color-surface)', overflow: 'hidden' }}>
+        <div className="messages-page-wrapper">
             {/* ── Sidebar ── */}
-            <aside
-                className={`messages-sidebar ${mobileView === 'chat' ? 'mobile-hidden' : ''}`}
-                style={{
-                    width: '100%',
-                    maxWidth: '420px',
-                    borderRight: '1.5px solid #f1f5f9',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    backgroundColor: 'white',
-                    flexShrink: 0,
-                    zIndex: 10
-                }}
-            >
-                <header style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    padding: '16px 20px', 
-                    background: '#fff', 
-                    position: 'sticky', 
-                    top: 0, 
-                    zIndex: 100, 
-                    borderBottom: '1.5px solid #f1f5f9'
-                }}>
+            <aside className={`messages-sidebar ${mobileView === 'chat' ? 'mobile-hidden' : ''}`}>
+                <header className="messages-sidebar-header">
                     <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
                         <FiChevronLeft size={24} color="#64748B" />
                     </button>
-                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Inbox</h2>
+                    <h2 className="sub-head-text">Inbox</h2>
                     <div style={{ width: 40 }} />
                 </header>
 
-                <div className="filter-chips-container" style={{ display: 'flex', gap: '8px', padding: '16px 20px', overflowX: 'auto', scrollbarWidth: 'none', borderBottom: '1px solid #f8fafc' }}>
+                <div className="messages-filter-container">
                     {['All', 'Active', 'Awaiting Reply'].map(filter => (
                         <button
                             key={filter}
                             onClick={() => setActiveTab(filter)}
+                            className={activeTab === filter ? "hw-filter-active" : "hw-filter-ghost"}
                             style={{
                                 padding: '10px 18px', borderRadius: '30px', border: 'none',
-                                whiteSpace: 'nowrap', fontSize: '13px', fontWeight: 700,
-                                backgroundColor: activeTab === filter ? '#4f74ff' : '#f1f5f9',
-                                color: activeTab === filter ? '#FFF' : '#64748b',
+                                whiteSpace: 'nowrap', fontSize: '13px', fontWeight: 500,
+                                backgroundColor: activeTab === filter ? 'var(--hw-primary)' : 'var(--hw-surface-high)',
+                                color: activeTab === filter ? '#FFF' : 'var(--hw-text-secondary)',
                                 cursor: 'pointer',
-                                transition: '0.2s transform active',
-                                boxShadow: activeTab === filter ? '0 4px 12px rgba(79, 116, 255, 0.2)' : 'none'
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeTab === filter ? '0 4px 12px rgba(28, 77, 255, 0.2)' : 'none'
                             }}
                         >
                             {filter}
@@ -228,40 +209,26 @@ function MessagesContent() {
                     ))}
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-sm)' }}>
+                <div className="messages-list-container">
                     {filteredChats.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>
                             <FiMessageSquare size={32} style={{ marginBottom: '12px' }} />
-                            <p className="text-label-sm">No conversations found</p>
+                            <p className="sub-para-text">No conversations found</p>
                         </div>
                     ) : (
                         filteredChats.map(chat => (
                             <div
                                 key={chat.id}
                                 onClick={() => handleSelectChat(chat)}
-                                style={{
-                                    padding: '20px 16px', borderRadius: '24px',
-                                    cursor: 'pointer', transition: 'all 0.2s', margin: '8px 4px',
-                                    display: 'flex', gap: '14px', alignItems: 'flex-start',
-                                    backgroundColor: selectedChat.id === chat.id ? '#F8FAFC' : '#FFF',
-                                    border: selectedChat.id === chat.id ? '1px solid #E2E8F0' : '1px solid transparent',
-                                    position: 'relative',
-                                    boxShadow: selectedChat.id === chat.id ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
-                                }}
+                                className={`chat-card ${selectedChat.id === chat.id ? 'active' : ''}`}
                             >
                                 {/* Active Indicator Dot */}
                                 {selectedChat.id === chat.id && (
                                     <div style={{ position: 'absolute', left: '-2px', top: '24px', bottom: '24px', width: '4px', backgroundColor: '#4f74ff', borderRadius: '0 4px 4px 0' }} />
                                 )}
 
-                                <div style={{ position: 'relative', flexShrink: 0 }}>
-                                    <div style={{
-                                        width: '52px', height: '52px', borderRadius: '50%',
-                                        backgroundColor: '#E2E8F0', overflow: 'hidden',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '18px', fontWeight: '800', color: '#4f74ff',
-                                        border: '2px solid #FFF', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                                    }}>
+                                <div className="chat-card-avatar-wrap">
+                                    <div className="chat-card-avatar">
                                         {chat.otherPartyAvatar ? <img src={chat.otherPartyAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : chat.otherPartyName?.[0]}
                                     </div>
                                     {chat.status === 'active' && (
@@ -269,34 +236,26 @@ function MessagesContent() {
                                     )}
                                 </div>
 
-                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div className="chat-card-content">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <h4 style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat.jobTitle}</h4>
-                                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', whiteSpace: 'nowrap', marginLeft: '8px' }}>{formatTimestamp(chat.lastMessageTime)}</span>
+                                        <h4 className="para-text" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat.jobTitle}</h4>
+                                        <span className="sub-para-text" style={{ whiteSpace: 'nowrap', marginLeft: '8px' }}>{formatTimestamp(chat.lastMessageTime)}</span>
                                     </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{
-                                            fontSize: '9px', fontWeight: 900, padding: '2px 8px', borderRadius: '20px',
-                                            backgroundColor: chat.status === 'pending' ? '#DCFCE7' : (chat.status === 'active' ? '#EEF2FF' : '#F1F5F9'),
-                                            color: chat.status === 'pending' ? '#166534' : (chat.status === 'active' ? '#4f74ff' : '#475569'),
-                                            textTransform: 'uppercase', letterSpacing: '0.5px'
-                                        }}>
-                                            {chat.status === 'pending' ? 'Interested' : (chat.status === 'active' ? 'Assigned' : chat.status?.toUpperCase())}
-                                        </span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748B', fontWeight: 700 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                        <Badge variant={chat.status === 'pending' ? 'waiting' : (chat.status === 'active' ? 'active' : 'waiting')} showDot>
+                                            {chat.status === 'pending' ? 'Interested' : (chat.status === 'active' ? 'Assigned' : chat.status)}
+                                        </Badge>
+                                        <div className="sub-para-text" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <span>{chat.otherPartyName}</span>
                                             {chat.otherPartyRating && (
-                                                <>
-                                                    <span style={{ color: '#F59E0B', fontSize: '10px' }}>★</span>
-                                                    <span>{chat.otherPartyRating.toFixed(1)}</span>
-                                                </>
+                                                <span style={{ color: '#F59E0B' }}>★ {chat.otherPartyRating.toFixed(1)}</span>
                                             )}
                                         </div>
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '4px' }}>
-                                        <p style={{ fontSize: '13.5px', color: '#64748B', fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, paddingRight: '12px', opacity: chat.unreadCount > 0 ? 1 : 0.8 }}>
+                                        <p style={{ color: '#64748B', fontWeight: 500, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, paddingRight: '12px', opacity: chat.unreadCount > 0 ? 1 : 0.8 }}>
                                             {chat.unreadCount > 0 ? <b>{chat.lastMessage}</b> : chat.lastMessage}
                                         </p>
                                         {chat.unreadCount > 0 && (
@@ -334,6 +293,7 @@ function MessagesContent() {
                                 budget={selectedChat.budget}
                                 otherPartyAvatar={chats.find(c => c.id === selectedChat.id)?.otherPartyAvatar}
                                 onBack={() => setMobileView('list')}
+                                userRole={chats.find(c => c.id === selectedChat.id)?.isHirer ? 'hirer' : 'worker'} 
                             />
                         </div>
                     </div>
@@ -354,30 +314,17 @@ function MessagesContent() {
                             justifyContent: 'center', marginBottom: '24px',
                             boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
                         }}>
-                            <FiMessageSquare size={32} color="#4f74ff" />
+                            <FiMessageSquare size={32} color="var(--hw-primary)" />
                         </div>
-                        <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>Select a conversation</h3>
-                        <p style={{ fontSize: '15px', fontWeight: 600, color: '#64748B', maxWidth: '300px' }}>
+                        <h3 className="sub-head-text">Select a conversation</h3>
+                        <p className="para-text" style={{ color: 'var(--hw-text-secondary)', maxWidth: '300px' }}>
                             Choose a chat from the sidebar to view messages and task details.
                         </p>
                     </div>
                 )}
             </main>
 
-            <style jsx global>{`
-                @media (max-width: 900px) {
-                    .messages-sidebar.mobile-hidden {
-                        display: none !important;
-                    }
-                    .chat-pane-container.mobile-hidden {
-                        display: none !important;
-                    }
-                    .messages-sidebar {
-                        width: 100% !important;
-                        max-width: 100% !important;
-                    }
-                }
-            `}</style>
+
         </div>
     );
 }

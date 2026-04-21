@@ -11,6 +11,7 @@ import { Button } from "@/Components/ui/Button";
 import { Input, TextArea } from "@/Components/ui/Input";
 import { Badge } from "@/Components/ui/Badge";
 import '@/css/profile.css';
+import ConfirmModal from '@/Components/common/ConfirmModal';
 
 export default function HirerProfilePage() {
     const router = useRouter();
@@ -45,6 +46,16 @@ export default function HirerProfilePage() {
         activeJobs: 0,
         totalHires: 0,
         rating: 0
+    });
+
+    // Confirm Modal State
+    const [confirmConfig, setConfirmConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        variant: 'destructive',
+        loading: false
     });
 
     const fetchData = useCallback(async () => {
@@ -195,21 +206,28 @@ export default function HirerProfilePage() {
     };
 
     const handleDeleteAccount = async () => {
-        if (!confirm("Are you sure? This will hide your profile and jobs. This action is significant.")) return;
-        setSaving(true);
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ is_deleted: true, deleted_at: new Date().toISOString() })
-                .eq('id', user.id);
-            if (error) throw error;
-            await supabase.auth.signOut();
-            router.push('/');
-        } catch (error) {
-            console.error('Error deleting account:', error);
-        } finally {
-            setSaving(false);
-        }
+        setConfirmConfig({
+            isOpen: true,
+            title: "Deactivate Account?",
+            message: "Are you sure? This will hide your profile and jobs. This action cannot be reversed easily.",
+            variant: 'destructive',
+            onConfirm: async () => {
+                setConfirmConfig(prev => ({ ...prev, loading: true }));
+                try {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+                        .eq('id', user.id);
+                    if (error) throw error;
+                    await supabase.auth.signOut();
+                    router.push('/');
+                } catch (error) {
+                    console.error('Error deleting account:', error);
+                } finally {
+                    setConfirmConfig(prev => ({ ...prev, loading: false, isOpen: false }));
+                }
+            }
+        });
     };
 
     if (loading) return <HashLoader text="" />;
@@ -247,7 +265,7 @@ export default function HirerProfilePage() {
                             <div className="profile-status-dot"></div>
                         </div>
                     </div>
-                    <h1 className="text-display-lg" style={{ color: '#0F172A', marginBottom: '8px' }}>
+                    <h1 className="head-text" style={{ color: '#0F172A', marginBottom: '8px' }}>
                         {profile.first_name} {profile.last_name}
                     </h1>
                     <Badge variant={companyComplete ? "active" : "waiting"} showDot>
@@ -263,7 +281,7 @@ export default function HirerProfilePage() {
                     {/* IDENTITY CARD */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-32)' }}>
-                            <h2 className="text-headline-md">Recruiter Profile</h2>
+                            <h2 className="sub-head-text">Recruiter Profile</h2>
                             {!isEditingBase ? (
                                 <Button variant="ghost" size="sm" onClick={() => setIsEditingBase(true)}>
                                     <FiEdit2 /> Edit Profile
@@ -280,20 +298,20 @@ export default function HirerProfilePage() {
                             <div className="info-display">
                                 <div className="hw-info-grid">
                                     <div className="hw-info-item">
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Full Name</label>
-                                        <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.first_name} {profile.last_name}</p>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Full Name</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-primary)', fontWeight: 500 }}>{profile.first_name} {profile.last_name}</p>
                                     </div>
                                     <div className="hw-info-item">
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Username</label>
-                                        <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.username ? `@${profile.username}` : '@hirer_id'}</p>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Username</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-primary)', fontWeight: 500 }}>{profile.username ? `@${profile.username}` : '@hirer_id'}</p>
                                     </div>
                                     <div className="hw-info-item">
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Contact Phone</label>
-                                        <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.phone || '—'}</p>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Contact Phone</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-primary)', fontWeight: 500 }}>{profile.phone || '—'}</p>
                                     </div>
                                     <div className="hw-info-item">
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Location</label>
-                                        <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{profile.country || '—'}</p>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Location</label>
+                                        <p className="para-text" style={{ color: 'var(--hw-text-primary)', fontWeight: 500 }}>{profile.country || '—'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -330,7 +348,7 @@ export default function HirerProfilePage() {
                     {/* COMPANY DETAILS CARD */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-32)' }}>
-                            <h2 className="text-headline-md">Company Branding</h2>
+                            <h2 className="sub-head-text">Company Branding</h2>
                             {!isEditingCompany ? (
                                 <Button variant="ghost" size="sm" onClick={() => setIsEditingCompany(true)}>
                                     <FiEdit2 /> Edit Brand
@@ -347,29 +365,29 @@ export default function HirerProfilePage() {
                             companyComplete ? (
                                 <div className="info-display">
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '24px', paddingBottom: '24px', marginBottom: '24px', borderBottom: '1.5px solid var(--hw-surface-high)' }}>
-                                        <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: 'var(--hw-surface-high)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', color: 'var(--hw-primary)', fontWeight: 800 }}>
+                                        <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: 'var(--hw-surface-high)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', color: 'var(--hw-primary)', fontWeight: 500 }}>
                                             {company.company_name?.charAt(0)}
                                         </div>
                                         <div>
-                                            <h3 className="text-headline-md" style={{ marginBottom: '4px' }}>{company.company_name}</h3>
-                                            <p className="text-body-md" style={{ color: 'var(--hw-text-secondary)', fontWeight: 600 }}>{company.industry} • {company.company_size} employees</p>
+                                            <h3 className="sub-head-text" style={{ marginBottom: '4px' }}>{company.company_name}</h3>
+                                            <p className="para-text" style={{ color: 'var(--hw-text-secondary)', fontWeight: 500 }}>{company.industry} • {company.company_size} employees</p>
                                         </div>
                                     </div>
 
                                     <div className="hw-info-grid">
                                         <div className="hw-info-item">
-                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Website</label>
-                                            <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-body-md" style={{ color: 'var(--hw-primary)', fontWeight: 700 }}>{company.website || '—'}</a>
+                                            <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Website</label>
+                                            <a href={company.website} target="_blank" rel="noopener noreferrer" className="para-text" style={{ color: 'var(--hw-primary)', fontWeight: 500 }}>{company.website || '—'}</a>
                                         </div>
                                         <div className="hw-info-item">
-                                            <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>Founded Year</label>
-                                            <p className="text-body-md" style={{ color: 'var(--hw-text-primary)', fontWeight: 700 }}>{company.founded_year || '—'}</p>
+                                            <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>Founded Year</label>
+                                            <p className="para-text" style={{ color: 'var(--hw-text-primary)', fontWeight: 500 }}>{company.founded_year || '—'}</p>
                                         </div>
                                     </div>
 
                                     <div className="hw-info-item" style={{ marginTop: '32px' }}>
-                                        <label className="text-label-sm" style={{ marginBottom: '8px', display: 'block' }}>About Company</label>
-                                        <p className="text-body-md" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '20px', borderRadius: '16px' }}>
+                                        <label className="sub-para-text" style={{ marginBottom: '8px', display: 'block', textTransform: 'uppercase', fontWeight: 500 }}>About Company</label>
+                                        <p className="para-text" style={{ lineHeight: 1.7, color: 'var(--hw-text-secondary)', background: 'var(--hw-surface-high)', padding: '20px', borderRadius: '16px' }}>
                                             {company.company_description || 'No description provided.'}
                                         </p>
                                     </div>
@@ -428,15 +446,15 @@ export default function HirerProfilePage() {
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px', background: 'var(--hw-primary-gradient)', border: 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff', marginBottom: '12px' }}>
                             <FiSave size={20} strokeWidth={3} />
-                            <h3 className="text-title-md" style={{ color: '#fff', margin: 0 }}>Trust & Reliability</h3>
+                            <h3 className="sub-head-text" style={{ color: '#fff', margin: 0 }}>Trust & Reliability</h3>
                         </div>
-                        <p className="text-body-md" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 600, margin: 0 }}>
+                        <p className="para-text" style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500, margin: 0 }}>
                             A complete hirer profile increases application quality by 65%. Workers trust verified brands.
                         </p>
                     </Card>
 
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
-                        <h3 className="text-headline-md hw-mb-24">Hiring Stats</h3>
+                        <h2 className="sub-head-text hw-mb-24">Hiring Stats</h2>
                         <div className="profile-stats-grid">
                             <div className="premium-stat-card">
                                 <span className="premium-stat-label">Active Jobs</span>
@@ -448,8 +466,8 @@ export default function HirerProfilePage() {
                             </div>
                         </div>
                         <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--hw-surface-high)', textAlign: 'center' }}>
-                            <p className="text-label-sm" style={{ marginBottom: '4px' }}>Average Rating</p>
-                            <p className="text-display-sm" style={{ color: 'var(--hw-primary)', margin: 0 }}>★ {Number(hiringStats.rating).toFixed(1)}</p>
+                            <p className="sub-para-text" style={{ marginBottom: '4px', textTransform: 'uppercase', fontWeight: 500 }}>Average Rating</p>
+                            <p className="head-text" style={{ color: 'var(--hw-primary)', margin: 0 }}>★ {Number(hiringStats.rating).toFixed(1)}</p>
                         </div>
                     </Card>
 
@@ -465,7 +483,7 @@ export default function HirerProfilePage() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '12px',
-                                fontWeight: 800,
+                                fontWeight: 500,
                                 fontSize: '16px',
                                 background: '#1e293b'
                             }}
@@ -490,6 +508,16 @@ export default function HirerProfilePage() {
                     </div>
                 </div>
             </div>
+            
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+                loading={confirmConfig.loading}
+            />
         </div>
     );
 }

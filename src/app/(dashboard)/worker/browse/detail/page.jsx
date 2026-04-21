@@ -29,6 +29,8 @@ function JobDetailsContent() {
     const [showDescription, setShowDescription] = useState(true);
     const [workerLoc, setWorkerLoc] = useState(null);
     const [hirerTaskCount, setHirerTaskCount] = useState(0);
+    const [showCancelPolicy, setShowCancelPolicy] = useState(false);
+    const [showSupport, setShowSupport] = useState(false);
 
 
 
@@ -95,7 +97,7 @@ function JobDetailsContent() {
             }
 
             const { error: applyError } = await supabase.from('applications').insert([{
-                job_id: job.id, worker_id: user.id, status: 'pending'
+                job_id: job.id, worker_id: currentUser.id, status: 'pending'
             }]);
 
             if (applyError) {
@@ -129,11 +131,6 @@ function JobDetailsContent() {
             
             <PageContainer>
                 <div style={{ padding: '24px 20px', paddingBottom: '100px' }}>
-                    {toast && (
-                        <div className="wh-detail-toast" style={{ backgroundColor: toast.type === 'error' ? '#ef4444' : '#4f74ff', zIndex: 1000 }}>
-                            {toast.message}
-                        </div>
-                    )}
 
                     <div className="wh-detail-main-layout">
                         <div className="wh-detail-primary-col">
@@ -149,17 +146,15 @@ function JobDetailsContent() {
                                 <h2 className="wh-job-title">{job.title}</h2>
 
                                 <div className="wh-detail-badges-row">
-                                    {job.urgency === 'immediate' && (
+                                    {job.urgency === 'immediate' ? (
                                         <div className="wh-badge-new urgent">
                                             <FiZap size={14} /> Urgent
                                         </div>
+                                    ) : (
+                                        <div className="wh-badge-new active">
+                                            Flexible
+                                        </div>
                                     )}
-                                    <div className="wh-badge-new transparent" style={{ textTransform: 'capitalize' }}>
-                                        {job.work_environment || 'Indoor'}
-                                    </div>
-                                    <div className="wh-badge-new transparent">
-                                        {job.is_one_time ? 'One-time' : 'Recurring'}
-                                    </div>
                                 </div>
 
                                 <hr className="wh-divider" />
@@ -211,7 +206,7 @@ function JobDetailsContent() {
                                 </div>
                                 <div className="wh-info-item">
                                     <span className="wh-info-label">WORK TYPE</span>
-                                    <div className="wh-info-value" style={{ textTransform: 'capitalize' }}>{job.role_type || (job.is_one_time ? 'One-time' : 'Recurring')}</div>
+                                    <div className="wh-info-value" style={{ textTransform: 'capitalize' }}>{job.role_type || 'Task'}</div>
                                 </div>
                                 <div className="wh-info-item">
                                     <span className="wh-info-label">PAYMENT TYPE</span>
@@ -251,13 +246,28 @@ function JobDetailsContent() {
                             </div>
 
                             <div className="wh-action-list">
-                                <div className="wh-action-item" onClick={() => showToast("Cancellation policy: Full refund if cancelled 24h before task start.", "info")}>
-                                    <span>Cancellation Policy</span>
-                                    <FiChevronRight size={20} />
+                                <div className="wh-action-item-wrap">
+                                    <div className="wh-action-item" onClick={() => setShowCancelPolicy(!showCancelPolicy)}>
+                                        <span>Cancellation Policy</span>
+                                        <FiChevronDown size={20} style={{ transform: showCancelPolicy ? 'rotate(180deg)' : 'none', transition: '0.3s' }} />
+                                    </div>
+                                    {showCancelPolicy && (
+                                        <div className="wh-action-expanded">
+                                            <p>Full refund if cancelled at least 24 hours before the scheduled start time. For last-minute cancellations, a partial fee may apply to compensate the worker's time.</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="wh-action-item" onClick={() => showToast("Support redirected to our help center.", "info")}>
-                                    <span>Support & Help</span>
-                                    <FiChevronRight size={20} />
+
+                                <div className="wh-action-item-wrap">
+                                    <div className="wh-action-item" onClick={() => setShowSupport(!showSupport)}>
+                                        <span>Support & Help</span>
+                                        <FiChevronDown size={20} style={{ transform: showSupport ? 'rotate(180deg)' : 'none', transition: '0.3s' }} />
+                                    </div>
+                                    {showSupport && (
+                                        <div className="wh-action-expanded">
+                                            <p>Need help? Our 24/7 support team is here. You can reach us via the chat support in the main menu or email us at support@hashworks.in for urgent resolution.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

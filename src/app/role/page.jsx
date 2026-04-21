@@ -94,8 +94,7 @@ export default function Onboarding() {
             // 1. Upload Avatar if new file exists
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();
-                const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-                const filePath = `public/${fileName}`;
+                const filePath = `${user.id}.${fileExt}`;
 
                 const { error: uploadError } = await supabase.storage
                     .from('Avatar')
@@ -126,7 +125,7 @@ export default function Onboarding() {
                     country: formData.country,
                     username: formData.username,
                     avatar_url: avatarUrl,
-                    updated_at: new Date()
+                    updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
 
             if (upsertError) throw upsertError;
@@ -134,7 +133,7 @@ export default function Onboarding() {
             setStep(2);
         } catch (error) {
             console.error('Error updating profile:', error);
-            alert('Failed to update profile. Please try again.');
+            alert(`Failed to update profile: ${error.message || 'Please try again'}`);
         } finally {
             setSubmitting(false);
         }
@@ -265,7 +264,7 @@ export default function Onboarding() {
                         </div>
 
                         <button type="submit" className="onboarding-submit-btn" disabled={submitting || !fullName.trim() || !formData.username.trim()}>
-                            {submitting ? <HashLoader text="" /> : (
+                            {submitting ? <HashLoader text="" inline /> : (
                                 <>
                                     Continue <FiArrowRight size={20} />
                                 </>

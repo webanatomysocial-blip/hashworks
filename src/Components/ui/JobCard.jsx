@@ -9,47 +9,58 @@ export function JobCard({
   job, 
   onViewDetails, 
   onApply, 
+  onDelete, // Added onDelete
   isApplied = false,
   isApplying = false,
   distance 
 }) {
-  const formatBudget = (min, max) => {
-    if (!min && !max) return "Negotiable";
-    return `₹${(min || 0).toLocaleString()}${max ? ' - ₹' + max.toLocaleString() : '+'}`;
+  const formatBudget = (max) => {
+    if (!max) return "Negotiable";
+    return `₹${max.toLocaleString()}`;
   };
 
   const badgeConfig = job.urgency === 'immediate' 
       ? { text: 'URGENT', variant: 'urgent' }
-      : job.urgency === 'high'
-      ? { text: 'HIGH PRIORITY', variant: 'waiting' }
+      : job.urgency === 'flexible'
+      ? { text: 'FLEXIBLE', variant: 'neutral' }
       : null;
+
+  const hirerName = job.hirer_first_name || job.profiles?.first_name || 'Hirer';
+  const hirerLastInitial = job.hirer_last_name?.[0] || job.profiles?.last_name?.[0] || '';
+  const hirerAvatar = job.hirer_avatar_url || job.profiles?.avatar_url;
 
   return (
     <div style={{ marginBottom: '16px' }}>
       <TaskCard 
-          topTitleLabel={`${job.hirer_first_name || 'Hirer'} ${job.hirer_last_name?.[0] ? job.hirer_last_name[0] + '.' : ''} • ${job.hirer_average_rating ? '★'+Number(job.hirer_average_rating).toFixed(1) : 'New'}`}
+          onClick={() => onViewDetails(job.id)} // Card click opens details
+          topTitleLabel={`${hirerName} ${hirerLastInitial ? hirerLastInitial + '.' : ''} • ${job.hirer_average_rating ? '★'+Number(job.hirer_average_rating).toFixed(1) : 'New'}`}
           title={job.title}
-          thumbnailUrl={job.reference_image_url || job.hirer_avatar_url}
+          thumbnailUrl={job.reference_image_url}
           thumbnailFallbackIcon={<FiBriefcase size={28} color="#64748B" />}
           badge={badgeConfig}
           metrics={[
-              { label: 'PAYOUT', value: formatBudget(job.budget_min, job.budget_max), valueColor: '#1C4DFF', valueSize: '16px' },
+              { label: 'PAYOUT', value: formatBudget(job.budget_max), valueColor: '#1C4DFF' },
               { label: 'LOCATION', value: job.city || 'Remote', subValue: distance !== undefined ? `${distance.toFixed(2)} km away` : null },
               { label: 'CATEGORY', value: job.category || 'Other' }
           ]}
           actionButtons={
-              <>
-                  <Button variant="ghost" onClick={() => onViewDetails(job.id)} style={{ flex: 1, height: '44px', borderRadius: '22px', fontWeight: 800 }}>
-                    Details
-                  </Button>
+              <div style={{ display: 'flex', gap: '12px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
                   <Button 
                     variant={isApplied ? "ghost" : "primary"} 
-                    onClick={() => onApply(job)} 
+                    onClick={() => onApply(job.id)} 
                     disabled={isApplied || isApplying}
-                    >
-                      {isApplied ? "Applied" : (isApplying ? "..." : "Apply")}
-                    </Button>
-              </>
+                    style={{ flex: 2, height: '44px', borderRadius: '22px', fontWeight: 600 }}
+                  >
+                      {isApplied ? "Applied" : (isApplying ? "..." : "Express Interest")}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => onDelete(job.id)} 
+                    style={{ flex: 1, height: '44px', borderRadius: '22px', color: '#EF4444', border: '1px solid #FEE2E2' }}
+                  >
+                    Delete
+                  </Button>
+              </div>
           }
       />
     </div>

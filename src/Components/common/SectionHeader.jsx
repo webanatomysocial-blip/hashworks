@@ -65,7 +65,7 @@ export default function SectionHeader({ title, onBack, rightAction, showShare })
 
             <h2 style={{ 
                 fontSize: '18px', 
-                fontWeight: 800, 
+                fontWeight: 500, 
                 color: '#0F172A', 
                 margin: 0,
                 position: 'absolute',
