@@ -243,7 +243,13 @@ function ProfileContent() {
                             <div className="ph-section-card">
                                 <div className="ph-title-row">
                                     <h2 className="ph-title">Work History</h2>
-                                    <span className="ph-edit-link">View All</span>
+                                    <span 
+                                        className="ph-edit-link" 
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => router.push(`/${role}/portfolio?id=${targetId}`)}
+                                    >
+                                        View All
+                                    </span>
                                 </div>
                                 <div>
                                     {pastWorks.map(pw => (

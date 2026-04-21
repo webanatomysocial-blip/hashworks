@@ -11,17 +11,29 @@ import { FiBriefcase } from 'react-icons/fi';
 import { Button } from '@/Components/ui/Button';
 import "@/css/dashboard.css";
 
-export default function PortfolioView({ role = 'worker' }) {
+export default function PortfolioView({ role = 'worker', userId = null }) {
     const router = useRouter();
     const [pastWorks, setPastWorks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [ownerName, setOwnerName] = useState('');
 
     useEffect(() => {
         async function fetchPastWorks() {
             setLoading(true);
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) { router.push('/auth/login'); return; }
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                const targetId = userId || authUser?.id;
+
+                if (!targetId) { 
+                    if (!authUser) router.push('/auth/login');
+                    return; 
+                }
+
+                // If viewing someone else, fetch their name for the title
+                if (userId && userId !== authUser?.id) {
+                    const { data: prof } = await supabase.from('profiles').select('first_name').eq('id', userId).single();
+                    if (prof) setOwnerName(`${prof.first_name}'s `);
+                }
 
                 let query = supabase
                     .from('past_works')
@@ -34,9 +46,9 @@ export default function PortfolioView({ role = 'worker' }) {
                     .order('completed_at', { ascending: false });
 
                 if (role === 'worker') {
-                    query = query.eq('worker_id', user.id);
+                    query = query.eq('worker_id', targetId);
                 } else {
-                    query = query.eq('hirer_id', user.id);
+                    query = query.eq('hirer_id', targetId);
                 }
 
                 const { data, error } = await query;
@@ -55,7 +67,7 @@ export default function PortfolioView({ role = 'worker' }) {
 
     return (
         <div className="wh-dashboard" style={{ background: 'var(--hw-surface)', minHeight: '100vh', paddingBottom: '60px' }}>
-            <SectionHeader title={role === 'worker' ? 'Worker Portfolio' : 'Hirer Portfolio'} />
+            <SectionHeader title={ownerName ? `${ownerName} History` : (role === 'worker' ? 'Worker Portfolio' : 'Hirer Portfolio')} />
             <PageContainer style={{ paddingTop: '24px' }}>
                 <div style={{ padding: '0 16px' }}>
 
