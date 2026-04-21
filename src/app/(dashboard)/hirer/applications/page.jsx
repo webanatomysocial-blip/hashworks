@@ -9,7 +9,7 @@ import { Card } from "@/Components/ui/Card";
 import { Badge } from "@/Components/ui/Badge";
 import HashLoader from "@/Components/common/HashLoader.jsx";
 import SectionHeader from '@/Components/common/SectionHeader';
-import { FiChevronRight, FiUsers, FiClock, FiSearch } from 'react-icons/fi';
+import { FiChevronRight, FiUsers, FiClock, FiSearch, FiStar } from 'react-icons/fi';
 import { Button } from "@/Components/ui/Button";
 
 function ApplicationsListContent() {
@@ -179,9 +179,10 @@ function ApplicationsListContent() {
                                                 <span className="sub-para-text hw-flex hw-items-center hw-gap-4">
                                                     <FiClock size={14} /> {new Date(app.created_at).toLocaleDateString()}
                                                 </span>
-                                                <span className="sub-para-text" style={{ color: '#f59e0b', fontWeight: 500 }}>
-                                                    ★ {app.worker?.average_rating && app.worker.average_rating > 0 ? Number(app.worker.average_rating).toFixed(1) : 'NA'}
-                                                </span>
+                                                <div className="sub-para-text hw-flex hw-items-center hw-gap-4" style={{ color: '#f59e0b', fontWeight: 500 }}>
+                                                    <FiStar size={12} fill={app.worker?.average_rating > 0 ? "#f59e0b" : "none"} color={app.worker?.average_rating > 0 ? "#f59e0b" : "#94a3b8"} />
+                                                    <span>{app.worker?.average_rating && app.worker.average_rating > 0 ? Number(app.worker.average_rating).toFixed(1) : 'NA'}</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div style={{ color: '#cbd5e1' }}>

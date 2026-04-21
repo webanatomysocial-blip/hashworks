@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiEdit2, FiSave, FiCheckCircle, FiPlus, FiArrowLeft, FiTrash2, FiChevronLeft, FiCheck, FiLogOut } from 'react-icons/fi';
+import { FiEdit2, FiSave, FiCheckCircle, FiPlus, FiArrowLeft, FiTrash2, FiChevronLeft, FiCheck, FiLogOut, FiStar } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
@@ -40,7 +40,7 @@ export default function HirerProfilePage() {
 
     const [isEditingBase, setIsEditingBase] = useState(false);
     const [isEditingCompany, setIsEditingCompany] = useState(false);
-    
+
     // Stats State
     const [hiringStats, setHiringStats] = useState({
         activeJobs: 0,
@@ -53,7 +53,7 @@ export default function HirerProfilePage() {
         isOpen: false,
         title: '',
         message: '',
-        onConfirm: () => {},
+        onConfirm: () => { },
         variant: 'destructive',
         loading: false
     });
@@ -243,11 +243,11 @@ export default function HirerProfilePage() {
                         <FiChevronLeft size={24} color="#64748B" />
                     </button>
                 </div>
-                
+
                 <div className="hw-profile-header-slot center">
                     <h2 className="hw-profile-title">Hirer Profile</h2>
                 </div>
-                
+
                 <div className="hw-profile-header-slot right">
                     {/* Placeholder for symmetry */}
                 </div>
@@ -277,7 +277,7 @@ export default function HirerProfilePage() {
             <div className="profile-grid" style={{ marginTop: '0' }}>
                 {/* LEFT COLUMN */}
                 <div className="profile-col-main">
-                    
+
                     {/* IDENTITY CARD */}
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--hw-space-32)' }}>
@@ -442,7 +442,7 @@ export default function HirerProfilePage() {
 
                 {/* RIGHT COLUMN */}
                 <div className="profile-col-side" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hw-space-24)' }}>
-                    
+
                     <Card variant="elevated" padding="xl" style={{ borderRadius: '24px', background: 'var(--hw-primary-gradient)', border: 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#fff', marginBottom: '12px' }}>
                             <FiSave size={20} strokeWidth={3} />
@@ -466,8 +466,11 @@ export default function HirerProfilePage() {
                             </div>
                         </div>
                         <div style={{ marginTop: '24px', padding: '16px', borderRadius: '16px', background: 'var(--hw-surface-high)', textAlign: 'center' }}>
-                            <p className="sub-para-text" style={{ marginBottom: '4px', textTransform: 'uppercase', fontWeight: 500 }}>Average Rating</p>
-                            <p className="head-text" style={{ color: 'var(--hw-primary)', margin: 0 }}>★ {Number(hiringStats.rating).toFixed(1)}</p>
+                            <p className="sub-para-text" style={{ marginBottom: '8px', textTransform: 'uppercase', fontWeight: 500 }}>Average Rating</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                <FiStar size={20} fill={hiringStats.rating > 0 ? "var(--hw-primary)" : "none"} color="var(--hw-primary)" strokeWidth={2} />
+                                <p className="head-text" style={{ color: 'var(--hw-primary)', margin: 0 }}>{Number(hiringStats.rating || 5.0).toFixed(1)}</p>
+                            </div>
                         </div>
                     </Card>
 
@@ -475,9 +478,9 @@ export default function HirerProfilePage() {
                         <Button
                             variant="primary"
                             onClick={handleLogout}
-                            style={{ 
-                                width: '100%', 
-                                height: '56px', 
+                            style={{
+                                width: '100%',
+                                height: '56px',
                                 borderRadius: '16px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -508,7 +511,7 @@ export default function HirerProfilePage() {
                     </div>
                 </div>
             </div>
-            
+
             <ConfirmModal
                 isOpen={confirmConfig.isOpen}
                 onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}

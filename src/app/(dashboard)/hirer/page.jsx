@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import {
     FiBriefcase, FiUsers, FiChevronRight,
-    FiFileText, FiActivity
+    FiFileText, FiActivity, FiStar
 } from 'react-icons/fi';
 import '@/css/hirer.css';
 import { useRouter } from 'next/navigation';
@@ -288,9 +288,12 @@ export default function HirerDashboard() {
                                         )}
                                     </div>
                                     <h4 className="sub-head-text" style={{ fontSize: '15px', fontWeight: 500 }}>{talent.worker.first_name || 'Talent'}</h4>
-                                    <p className="sub-para-text" style={{ color: '#1C4DFF', fontSize: '11px', fontWeight: 500, marginTop: '4px' }}>
-                                        ★ {Number(talent.worker.average_rating || 5.0).toFixed(1)}
-                                    </p>
+                                    <div className="hw-flex hw-items-center hw-justify-center hw-gap-4 hw-mt-4">
+                                        <FiStar size={12} fill={talent.worker.average_rating ? "#F59E0B" : "none"} color={talent.worker.average_rating ? "#F59E0B" : "#94A3B8"} />
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                                            {talent.worker.average_rating ? Number(talent.worker.average_rating).toFixed(1) : 'N/A'}
+                                        </span>
+                                    </div>
                                 </Card>
                             ))}
                         </div>

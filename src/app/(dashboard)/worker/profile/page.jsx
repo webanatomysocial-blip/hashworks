@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText, FiChevronLeft, FiCheck, FiLogOut } from 'react-icons/fi';
+import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText, FiChevronLeft, FiCheck, FiLogOut, FiStar } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
 import AvatarUpload from '@/Components/profile/AvatarUpload';
 import ResumeUpload from '@/Components/profile/ResumeUpload';
@@ -687,9 +687,12 @@ export default function WorkerProfilePage() {
                             </div>
                             <div className="premium-stat-card">
                                 <span className="premium-stat-label">Rating</span>
-                                <span className="premium-stat-value">
-                                    {stats.average_rating > 0 ? `★${stats.average_rating.toFixed(1)}` : '• NEW'}
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+                                    <FiStar size={18} fill={stats.average_rating > 0 ? "#F59E0B" : "none"} color={stats.average_rating > 0 ? "#F59E0B" : "#94A3B8"} />
+                                    <span className="premium-stat-value" style={{ margin: 0 }}>
+                                        {stats.average_rating > 0 ? stats.average_rating.toFixed(1) : 'N/A'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </Card>

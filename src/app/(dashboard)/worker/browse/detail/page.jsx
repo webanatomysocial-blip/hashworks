@@ -119,7 +119,12 @@ function JobDetailsContent() {
     if (!job) return <div className="wh-dashboard" style={{ textAlign: 'center', padding: '100px 24px' }}><h3>Task not found</h3><Button onClick={() => router.back()}>Go Back</Button></div>;
 
     const hirer = Array.isArray(job.profiles) ? job.profiles[0] : job.profiles;
-    const ratingDisplay = hirer?.average_rating ? `★${hirer.average_rating.toFixed(1)}` : "New Poster";
+    const ratingDisplay = (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <FiStar size={14} fill={hirer?.average_rating ? "#F59E0B" : "none"} color={hirer?.average_rating ? "#F59E0B" : "#94A3B8"} />
+            <span>{hirer?.average_rating ? hirer.average_rating.toFixed(1) : 'N/A'}</span>
+        </div>
+    );
     
     const effectivePayout = (job.budget_max && job.estimated_minutes) 
         ? Math.round(job.budget_max / (job.estimated_minutes / 60)) 
@@ -228,7 +233,7 @@ function JobDetailsContent() {
                                         )}
                                     </div>
                                     <div className="wh-hirer-text">
-                                        <h4>{hirer?.first_name || 'Hirer'} {hirer?.last_name?.[0] ? `${hirer.last_name[0]}.` : ''} <span style={{ color: 'var(--color-primary)', marginLeft: '4px' }}>{ratingDisplay}</span></h4>
+                                        <h4>{hirer?.first_name || 'Hirer'} {hirer?.last_name?.[0] ? `${hirer.last_name[0]}.` : ''} <span style={{ color: 'var(--color-primary)', marginLeft: '4px', verticalAlign: 'middle' }}>{ratingDisplay}</span></h4>
                                         <p>{hirerTaskCount || '0'} Tasks Posted</p>
                                     </div>
                                 </div>

@@ -7,7 +7,7 @@ import HashLoader from '@/Components/common/HashLoader';
 import { PageContainer } from '@/Components/layouts/PageContainer';
 import SectionHeader from '@/Components/common/SectionHeader';
 import { TaskCard } from '@/Components/ui/TaskCard';
-import { FiBriefcase } from 'react-icons/fi';
+import { FiBriefcase, FiStar } from 'react-icons/fi';
 import { Button } from '@/Components/ui/Button';
 import "@/css/dashboard.css";
 
@@ -94,7 +94,13 @@ export default function PortfolioView({ role = 'worker', userId = null }) {
                                 return (
                                     <TaskCard 
                                         key={pw.id}
-                                        topTitleLabel={`${partner?.first_name || 'Partner'} ${partner?.last_name?.[0] ? partner.last_name[0] + '.' : ''} • ${partner?.average_rating ? '★'+Number(partner.average_rating).toFixed(1) : 'New'}`}
+                                        topTitleLabel={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {partner?.first_name || 'Partner'} {partner?.last_name?.[0] ? partner.last_name[0] + '.' : ''} • 
+                                                <FiStar size={14} fill={partner?.average_rating ? "#F59E0B" : "none"} color={partner?.average_rating ? "#F59E0B" : "#94A3B8"} />
+                                                <span>{partner?.average_rating ? Number(partner.average_rating).toFixed(1) : 'N/A'}</span>
+                                            </div>
+                                        }
                                         title={pw.title || pw.jobs?.title || 'Untitled Project'}
                                         thumbnailUrl={pw.jobs?.reference_image_url}
                                         thumbnailFallbackIcon={<FiBriefcase size={28} color="#64748B" />}

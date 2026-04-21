@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FiMessageSquare, FiSearch, FiArrowLeft, FiClock, FiBell, FiChevronLeft } from 'react-icons/fi';
+import { FiMessageSquare, FiSearch, FiArrowLeft, FiClock, FiBell, FiChevronLeft, FiStar } from 'react-icons/fi';
 import ChatView from '@/Components/common/ChatView';
 import HashLoader from '@/Components/common/HashLoader';
 import { getLastMessage, getUnreadCount } from '@/lib/chat';
@@ -249,7 +249,10 @@ function MessagesContent() {
                                         <div className="sub-para-text" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <span>{chat.otherPartyName}</span>
                                             {chat.otherPartyRating && (
-                                                <span style={{ color: '#F59E0B' }}>★ {chat.otherPartyRating.toFixed(1)}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#F59E0B' }}>
+                                                    <FiStar size={12} fill="#F59E0B" />
+                                                    <span>{chat.otherPartyRating.toFixed(1)}</span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

@@ -3,9 +3,9 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { 
-    FiMapPin, FiClock, 
-    FiShield, FiCheckCircle, FiChevronDown, FiTarget
+import {
+    FiMapPin, FiClock,
+    FiShield, FiCheckCircle, FiChevronDown, FiTarget, FiStar
 } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
 import { PageContainer } from '@/Components/layouts/PageContainer';
@@ -60,17 +60,22 @@ function DetailContent({ role }) {
     if (!selectedWork) return <div className="wh-dashboard" style={{ textAlign: 'center', padding: '100px 24px' }}><h3>Project not found</h3><Button onClick={() => router.back()}>Go Back</Button></div>;
 
     const partner = role === 'worker' ? selectedWork.hirer : selectedWork.worker;
-    const ratingDisplay = partner?.average_rating ? `★${partner.average_rating.toFixed(1)}` : "New Profile";
+    const ratingDisplay = (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <FiStar size={14} fill={partner?.average_rating ? "#F59E0B" : "none"} color={partner?.average_rating ? "#F59E0B" : "#94A3B8"} />
+            <span>{partner?.average_rating ? partner.average_rating.toFixed(1) : 'N/A'}</span>
+        </div>
+    );
     const job = selectedWork.jobs || {};
-    
-    const effectivePayout = (job.budget_max && job.estimated_minutes) 
-        ? Math.round(job.budget_max / (job.estimated_minutes / 60)) 
+
+    const effectivePayout = (job.budget_max && job.estimated_minutes)
+        ? Math.round(job.budget_max / (job.estimated_minutes / 60))
         : (job.budget_max || selectedWork.payout || 0);
 
     return (
         <div className="wh-dashboard" style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: '100px' }}>
             <SectionHeader title="Project Details" showShare={true} />
-            
+
             <PageContainer>
                 <div style={{ padding: '24px 20px', paddingBottom: '40px' }}>
 
@@ -89,7 +94,7 @@ function DetailContent({ role }) {
 
                                 <div className="wh-detail-badges-row">
                                     <div className="wh-badge-new active" style={{ background: '#DCFCE7', color: '#16A34A', border: '1px solid #16A34A' }}>
-                                        <FiCheckCircle size={14} style={{ marginRight: '4px' }}/> Completed
+                                        <FiCheckCircle size={14} style={{ marginRight: '4px' }} /> Completed
                                     </div>
                                     <div className="wh-badge-new neutral" style={{ background: '#f1f5f9', color: '#64748B' }}>
                                         {new Date(selectedWork.completed_at).toLocaleDateString()}
@@ -167,8 +172,8 @@ function DetailContent({ role }) {
                                         )}
                                     </div>
                                     <div className="wh-hirer-text">
-                                        <h4>{partner?.first_name || 'Partner'} {partner?.last_name?.[0] ? `${partner.last_name[0]}.` : ''} <span style={{ color: 'var(--color-primary)', marginLeft: '4px' }}>{ratingDisplay}</span></h4>
-                                        <p>{partner?.total_jobs_completed || '0'} Projects Completed</p>
+                                        <h4>{partner?.first_name || 'Partner'} {partner?.last_name?.[0] ? `${partner.last_name[0]}.` : ''} <span style={{ color: 'var(--color-primary)', marginLeft: '4px', verticalAlign: 'middle' }}>{ratingDisplay}</span></h4>
+                                        
                                     </div>
                                 </div>
                                 <button className="wh-view-profile-btn" onClick={() => router.push(`/profile/view?id=${partner?.id}`)}>
@@ -204,7 +209,7 @@ function DetailContent({ role }) {
 
             {/* Mobile/Sticky Back Button Footer */}
             <div className="wh-mobile-sticky-footer" style={{ padding: '16px 20px', background: '#fff', borderTop: '1px solid #f1f5f9' }}>
-                <button 
+                <button
                     className="hw-btn hw-btn-primary"
                     onClick={() => router.push(`/${role}/portfolio`)}
                     style={{ width: '100%', height: '52px', borderRadius: '26px', fontSize: '15px' }}

@@ -33,7 +33,13 @@ export function JobCard({
     <div style={{ marginBottom: '16px' }}>
       <TaskCard 
           onClick={() => onViewDetails(job.id)} // Card click opens details
-          topTitleLabel={`${hirerName} ${hirerLastInitial ? hirerLastInitial + '.' : ''} • ${job.hirer_average_rating ? '★'+Number(job.hirer_average_rating).toFixed(1) : 'New'}`}
+          topTitleLabel={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {hirerName} {hirerLastInitial ? hirerLastInitial + '.' : ''} • 
+              <FiStar size={14} fill={job.hirer_average_rating ? "#F59E0B" : "none"} color={job.hirer_average_rating ? "#F59E0B" : "#94A3B8"} />
+              <span>{job.hirer_average_rating ? Number(job.hirer_average_rating).toFixed(1) : 'N/A'}</span>
+            </div>
+          }
           title={job.title}
           thumbnailUrl={job.reference_image_url}
           thumbnailFallbackIcon={<FiBriefcase size={28} color="#64748B" />}

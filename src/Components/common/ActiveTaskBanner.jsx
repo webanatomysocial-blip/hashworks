@@ -14,7 +14,6 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
     const otherPerson = role === 'worker' ? contract.hirer : contract.worker;
 
     // Logic for Status and Metric
-    // Logic for Status and Metric
     const rawStatus = contract.status || 'active';
     const statusText = rawStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     
@@ -110,9 +109,9 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
                 color: 'rgba(255, 255, 255, 0.95)', 
                 margin: 0,
                 maxWidth: '92%',
-                fontSize: '18px',
-                lineHeight: 1.5,
-                fontWeight: 400
+                fontSize: '20px',
+                lineHeight: 1.6,
+                fontWeight: 450
             }}>
                 {description}
             </p>
@@ -127,7 +126,7 @@ export default function ActiveTaskBanner({ contract, role = 'worker', onClick })
                         border: '1px solid rgba(255, 255, 255, 0.3)', 
                         padding: '14px 32px', 
                         borderRadius: '100px', 
-                        fontSize: '17px', 
+                        fontSize: '18px', 
                         fontWeight: 600,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
