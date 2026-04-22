@@ -4,24 +4,24 @@ import { useState, useEffect, useRef } from 'react';
 import { FiSend, FiMessageSquare, FiClock, FiPlus, FiChevronLeft, FiBell, FiMoreVertical, FiInfo } from 'react-icons/fi';
 import { HiOutlineWrench } from 'react-icons/hi2';
 import { supabase } from '@/lib/supabase';
-import { getMessages, sendMessage, subscribeToMessages, markMessagesAsRead } from '@/lib/chat';
+import { getMessagesForContracts, sendMessage, subscribeToMessages, markMessagesAsReadForContracts } from '@/lib/chat';
 import HashLoader from './HashLoader';
 
-export default function ChatView({ contractId, currentUserId, otherUserName, showHeader = true, onClose = null, jobTitle = '', status = '', budget = 0, otherPartyAvatar = null, onBack = null, userRole = 'worker' }) {
+export default function ChatView({ contractIds, defaultContractId, currentUserId, otherUserName, showHeader = true, onClose = null, otherPartyAvatar = null, onBack = null, userRole = 'worker' }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef(null);
 
     useEffect(() => {
-        if (!contractId || !currentUserId) return;
+        if (!contractIds || contractIds.length === 0 || !currentUserId) return;
 
         async function initChat() {
             setLoading(true);
             try {
-                const history = await getMessages(contractId);
+                const history = await getMessagesForContracts(contractIds);
                 setMessages(history);
-                await markMessagesAsRead(contractId, currentUserId);
+                await markMessagesAsReadForContracts(contractIds, currentUserId);
             } catch (err) {
                 console.error('Failed to load messages:', err);
             } finally {
@@ -31,20 +31,22 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
         initChat();
 
-        const subscription = subscribeToMessages(contractId, (msg) => {
-            setMessages((prev) => {
-                if (prev.some(m => m.id === msg.id)) return prev;
-                return [...prev, msg];
-            });
-            if (msg.sender_id !== currentUserId) {
-                markMessagesAsRead(contractId, currentUserId);
-            }
-        });
+        const subscriptions = contractIds.map(cid => 
+            subscribeToMessages(cid, (msg) => {
+                setMessages((prev) => {
+                    if (prev.some(m => m.id === msg.id)) return prev;
+                    return [...prev, msg].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                });
+                if (msg.sender_id !== currentUserId) {
+                    markMessagesAsReadForContracts([cid], currentUserId);
+                }
+            })
+        );
 
         return () => {
-            supabase.removeChannel(subscription);
+            subscriptions.forEach(sub => supabase.removeChannel(sub));
         };
-    }, [contractId, currentUserId]);
+    }, [contractIds, currentUserId]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -54,13 +56,13 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
 
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !contractId || !currentUserId) return;
+        if (!newMessage.trim() || !defaultContractId || !currentUserId) return;
 
         const content = newMessage.trim();
         setNewMessage('');
 
         try {
-            const sentMsg = await sendMessage(contractId, currentUserId, content);
+            const sentMsg = await sendMessage(defaultContractId, currentUserId, content);
             setMessages(prev => {
                 if (prev.some(m => m.id === sentMsg.id)) return prev;
                 return [...prev, sentMsg];
@@ -94,7 +96,7 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
         return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
     };
 
-    if (!contractId) {
+    if (!contractIds || contractIds.length === 0) {
         return (
             <div className="chat-empty-state">
                 <div className="empty-icon-pulse">
@@ -158,7 +160,7 @@ export default function ChatView({ contractId, currentUserId, otherUserName, sho
                                         <p>{msg.content.replace('System:', '').trim()}</p>
                                         <div className="system-btn-wrap">
                                             <a 
-                                                href={`${userRole === 'worker' ? '/worker/workercontract' : '/hirer/hirercontract'}?id=${contractId}`}
+                                                href={`${userRole === 'worker' ? '/worker/workercontract' : '/hirer/hirercontract'}?id=${msg.contract_id || defaultContractId}`}
                                                 className="system-btn"
                                             >
                                                 View Details →

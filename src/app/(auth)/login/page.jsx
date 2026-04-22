@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import HashLoader from '@/Components/common/HashLoader';
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
+import { FaGoogle, FaApple } from 'react-icons/fa';
 import '@/css/auth.css';
 
 export default function Login() {
@@ -125,11 +126,11 @@ export default function Login() {
 
                 <div className="auth-social-row">
                     <button className="auth-social-btn">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+                        <FaGoogle size={20} color="#EA4335" />
                         Google
                     </button>
                     <button className="auth-social-btn">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple" />
+                        <FaApple size={22} color="#000000" />
                         Apple
                     </button>
                 </div>

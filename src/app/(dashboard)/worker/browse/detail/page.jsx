@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { 
     FiMapPin, FiClock, 
     FiShield, FiTarget, FiChevronRight, FiZap, 
-    FiCheckCircle, FiChevronDown
+    FiCheckCircle, FiChevronDown, FiStar
 } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/Components/ui/Button';

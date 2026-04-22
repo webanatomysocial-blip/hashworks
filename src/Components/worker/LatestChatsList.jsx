@@ -61,7 +61,7 @@ export default function LatestChatsList({ chats = [], onViewAll, onChatClick }) 
                 }}
               >
                 {person?.avatar_url
-                  ? <img src={person.avatar_url} alt={initials} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={person.avatar_url} loading="lazy" alt={initials} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--hw-primary)' }}>{initials}</span>
                 }
               </div>

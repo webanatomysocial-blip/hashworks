@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { FiEdit2, FiPlus, FiTrash2, FiSave, FiX, FiFileText, FiChevronLeft, FiCheck, FiLogOut, FiStar } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
+import SectionHeader from '@/Components/common/SectionHeader';
+import { PageContainer } from '@/Components/layouts/PageContainer';
 import AvatarUpload from '@/Components/profile/AvatarUpload';
 import ResumeUpload from '@/Components/profile/ResumeUpload';
 import { Card } from "@/Components/ui/Card";
@@ -415,58 +417,39 @@ export default function WorkerProfilePage() {
     const completeness = calculateCompleteness(profile, mySkills, myEducation, availability);
 
     return (
-        <div className="profile-dashboard" style={{ padding: 0 }}>
-            {/* Premium Sticky Header */}
-            <header className="hw-profile-header">
-                <div className="hw-profile-header-slot left">
-                    <button onClick={() => router.back()} className="hw-back-btn">
-                        <FiChevronLeft size={24} color="#64748B" />
-                    </button>
-                </div>
-                
-                <div className="hw-profile-header-slot center">
-                    <h2 className="hw-profile-title">Worker Profile</h2>
-                </div>
-                
-                <div className="hw-profile-header-slot right">
-                    <div className="header-completeness">
-                        <div className="header-comp-text">
-                            <span>Completeness {completeness}%</span>
-                        </div>
-                        <div className="header-comp-bar">
-                            <div className="header-comp-fill" style={{ width: `${completeness}%` }}></div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+        <div className="profile-dashboard">
+            <SectionHeader title="Worker Profile" />
 
-            <div style={{ padding: '24px 0' }}>
-
-            {/* Premium Hero Section */}
-            <section className="profile-hero-section">
-                <div className="profile-hero-banner"></div>
-                <div className="profile-hero-content">
-                    <div className="profile-avatar-premium">
-                        <AvatarUpload 
-                            userId={user.id}
-                            userName={profile.first_name}
-                            currentUrl={profile.avatar_url}
-                            onUploadSuccess={(url) => setProfile(prev => ({ ...prev, avatar_url: url }))}
-                        />
-                        <div className="profile-status-ring">
-                            <div className="profile-status-dot"></div>
+            <PageContainer size="lg" style={{ paddingTop: '16px' }}>
+                {/* Premium Hero Section */}
+                <div className="ph-hero-card hw-premium-card" style={{ marginBottom: '24px' }}>
+                    <div className="ph-hero-top">
+                        <div className="ph-avatar-box">
+                            <AvatarUpload 
+                                userId={user.id}
+                                userName={profile.first_name}
+                                currentUrl={profile.avatar_url}
+                                onUploadSuccess={(url) => setProfile(prev => ({ ...prev, avatar_url: url }))}
+                            />
+                        </div>
+                        <div className="ph-hero-info">
+                            <div className="ph-name">{profile.first_name} {profile.last_name}</div>
+                            <div className="ph-location"><FiFileText size={12} /> {profile.headline || 'Professional Freelancer'}</div>
+                            <div className="ph-meta-row" style={{ marginTop: '12px' }}>
+                                <div className="header-completeness" style={{ padding: 0, background: 'transparent' }}>
+                                    <div className="header-comp-text">
+                                        <span style={{ fontSize: '12px', fontWeight: 600 }}>Profile Completeness {completeness}%</span>
+                                    </div>
+                                    <div className="header-comp-bar" style={{ width: '120px' }}>
+                                        <div className="header-comp-fill" style={{ width: `${completeness}%` }}></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <h1 className="head-text" style={{ color: '#0F172A', marginBottom: '8px' }}>
-                        {profile.first_name} {profile.last_name}
-                    </h1>
-                    <p className="para-text" style={{ color: 'var(--hw-text-secondary)' }}>
-                        {profile.headline || 'Professional Freelancer'}
-                    </p>
                 </div>
-            </section>
 
-            <div className="profile-grid" style={{ marginTop: '0' }}>
+                <div className="profile-grid">
                 {/* LEFT COLUMN */}
                 <div className="profile-col-main">
 
@@ -806,8 +789,8 @@ export default function WorkerProfilePage() {
                     </div>
                 </div>
             </div>
-        </div>
-        <ConfirmModal
+            </PageContainer>
+            <ConfirmModal
                 isOpen={confirmConfig.isOpen}
                 onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
                 onConfirm={confirmConfig.onConfirm}

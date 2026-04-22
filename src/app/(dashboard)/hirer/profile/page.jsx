@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { FiEdit2, FiSave, FiCheckCircle, FiPlus, FiArrowLeft, FiTrash2, FiChevronLeft, FiCheck, FiLogOut, FiStar } from 'react-icons/fi';
 import HashLoader from '@/Components/common/HashLoader';
+import SectionHeader from '@/Components/common/SectionHeader';
 import { PageContainer } from "@/Components/layouts/PageContainer";
 import { Card } from "@/Components/ui/Card";
 import { Button } from "@/Components/ui/Button";
@@ -235,46 +236,35 @@ export default function HirerProfilePage() {
     const companyComplete = !!company.company_name;
 
     return (
-        <div className="profile-dashboard" style={{ padding: 0 }}>
-            {/* Premium Sticky Header */}
-            <header className="hw-profile-header">
-                <div className="hw-profile-header-slot left">
-                    <button onClick={() => router.back()} className="hw-back-btn">
-                        <FiChevronLeft size={24} color="#64748B" />
-                    </button>
-                </div>
-
-                <div className="hw-profile-header-slot center">
-                    <h2 className="hw-profile-title">Hirer Profile</h2>
-                </div>
-
-                <div className="hw-profile-header-slot right">
-                    {/* Placeholder for symmetry */}
-                </div>
-            </header>
+        <div className="profile-dashboard">
+            <SectionHeader title="Hirer Profile" />
 
             {/* Premium Hero Section */}
-            <section className="profile-hero-section">
-                <div className="profile-hero-banner"></div>
-                <div className="profile-hero-content">
-                    <div className="profile-avatar-premium">
-                        <div className="profile-avatar-placeholder">
-                            {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : (profile.first_name?.charAt(0) || 'H')}
+            <PageContainer size="lg" style={{ paddingTop: '16px' }}>
+                <div className="ph-hero-card hw-premium-card" style={{ marginBottom: '24px' }}>
+                    <div className="ph-hero-top">
+                        <div className="ph-avatar-box">
+                            {profile.avatar_url ? (
+                                <img src={profile.avatar_url} className="ph-avatar-img" alt="" />
+                            ) : (
+                                <div className="profile-avatar-placeholder ph-avatar-img" style={{ fontSize: '32px' }}>
+                                    {profile.first_name?.charAt(0) || 'H'}
+                                </div>
+                            )}
                         </div>
-                        <div className="profile-status-ring">
-                            <div className="profile-status-dot"></div>
+                        <div className="ph-hero-info">
+                            <div className="ph-name">{profile.first_name} {profile.last_name}</div>
+                            <div className="ph-location"><FiCheckCircle size={12} /> {companyComplete ? "Verified Hirer" : "Incomplete Profile"}</div>
+                            <div className="ph-meta-row" style={{ marginTop: '12px' }}>
+                                <Badge variant={companyComplete ? "active" : "waiting"} showDot>
+                                    {companyComplete ? "Company Added" : "Requires Logo & Details"}
+                                </Badge>
+                            </div>
                         </div>
                     </div>
-                    <h1 className="head-text" style={{ color: '#0F172A', marginBottom: '8px' }}>
-                        {profile.first_name} {profile.last_name}
-                    </h1>
-                    <Badge variant={companyComplete ? "active" : "waiting"} showDot>
-                        {companyComplete ? "Verified Hirer" : "Incomplete Profile"}
-                    </Badge>
                 </div>
-            </section>
 
-            <div className="profile-grid" style={{ marginTop: '0' }}>
+            <div className="profile-grid">
                 {/* LEFT COLUMN */}
                 <div className="profile-col-main">
 
@@ -511,6 +501,7 @@ export default function HirerProfilePage() {
                     </div>
                 </div>
             </div>
+            </PageContainer>
 
             <ConfirmModal
                 isOpen={confirmConfig.isOpen}

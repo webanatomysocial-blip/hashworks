@@ -35,31 +35,44 @@ export default function WorkerDashboardHome() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/auth/login"); return; }
 
-      // Fetch Profile
-      const { data: prof } = await supabase
-          .from('profiles').select('*').eq('id', user.id).single();
+      // Parallelize primary queries to prevent sequential waterfall blocking
+      const [
+        { data: prof },
+        { data: contractsData },
+        { data: urgentData },
+        { data: savedData },
+        { data: rejectedData },
+        { data: chatsData }
+      ] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
+          supabase.from("contracts")
+            .select(`*, jobs(*), hirer:profiles!contracts_hirer_id_fkey(first_name, last_name, avatar_url)`)
+            .eq("worker_id", user.id).eq("status", "active")
+            .order("created_at", { ascending: false }).limit(1),
+          supabase.from("jobs")
+            .select("id, title, description, budget_min, budget_max, city, subcity, urgency, role_type, location_type, created_at, estimated_minutes, latitude, longitude, reference_image_url")
+            .eq("urgency", "immediate").eq("status", "active")
+            .neq("hirer_id", user.id).order("created_at", { ascending: false }).limit(8),
+          supabase.from("saved_jobs").select("job_id").eq("worker_id", user.id),
+          supabase.from("rejected_jobs").select("job_id").eq("worker_id", user.id),
+          supabase.from("messages")
+            .select(`id, content, created_at, is_read,
+              contract:contracts!messages_contract_id_fkey(
+                id,
+                hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
+                worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
+              )`)
+            .order("created_at", { ascending: false }).limit(20)
+      ]);
+
       setProfile(prof);
 
-      // Active contract
-      const { data: contractsData } = await supabase
-        .from("contracts")
-        .select(`*, jobs(*), hirer:profiles!contracts_hirer_id_fkey(first_name, last_name, avatar_url)`)
-        .eq("worker_id", user.id).eq("status", "active")
-        .order("created_at", { ascending: false }).limit(1);
       if (contractsData?.[0]) {
         setActiveGig(contractsData[0]);
       } else {
         setActiveGig(null);
       }
 
-      // Urgent jobs
-      const { data: urgentData } = await supabase
-        .from("jobs")
-        .select("id, title, description, budget_min, budget_max, city, subcity, urgency, role_type, location_type, created_at, estimated_minutes, latitude, longitude, reference_image_url")
-        .eq("urgency", "immediate").eq("status", "active")
-        .neq("hirer_id", user.id)
-        .order("created_at", { ascending: false }).limit(8);
-        
       const urgentWithDistance = (urgentData || []).map(job => {
         if (prof?.latitude && prof?.longitude && job.latitude && job.longitude) {
           const dist = calculateDistance(prof.latitude, prof.longitude, job.latitude, job.longitude);
@@ -69,23 +82,19 @@ export default function WorkerDashboardHome() {
       });
       setUrgentJobs(urgentWithDistance);
 
-      // Fetch IDs of jobs the worker has already interaction with (saved or rejected)
-      const { data: savedData } = await supabase.from("saved_jobs").select("job_id").eq("worker_id", user.id);
-      const { data: rejectedData } = await supabase.from("rejected_jobs").select("job_id").eq("worker_id", user.id);
-      
       const seenJobIds = [
         ...(savedData?.map(s => s.job_id) || []),
         ...(rejectedData?.map(r => r.job_id) || [])
       ];
 
-      // Recommended jobs for Discovery Stack (filtered to remove seen jobs)
+      // Discovery query relies on seenJobIds
       let discoveryQuery = supabase
         .from("jobs")
         .select("*, profiles!jobs_hirer_id_fkey(first_name, last_name, avatar_url)")
         .eq("status", "active")
         .neq("hirer_id", user.id)
         .gte("start_date", new Date().toISOString().split('T')[0]); 
-      
+
       if (seenJobIds.length > 0) {
         discoveryQuery = discoveryQuery.not("id", "in", `(${seenJobIds.join(',')})`);
       }
@@ -102,17 +111,6 @@ export default function WorkerDashboardHome() {
         return job;
       });
       setRecommendedJobs(discoveryWithDistance);
-
-      // Latest chats — one per contract, most recent message
-      const { data: chatsData } = await supabase
-        .from("messages")
-        .select(`id, content, created_at, is_read,
-          contract:contracts!messages_contract_id_fkey(
-            id,
-            hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
-            worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
-          )`)
-        .order("created_at", { ascending: false }).limit(20);
 
       const seen = new Set();
       const deduped = [];

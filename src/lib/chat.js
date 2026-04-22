@@ -98,3 +98,35 @@ export async function getUnreadCount(contractId, userId) {
     if (error) throw error
     return count || 0
 }
+
+/**
+ * Fetches message history for multiple contracts.
+ */
+export async function getMessagesForContracts(contractIds) {
+    if (!contractIds || contractIds.length === 0) return []
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .in('contract_id', contractIds)
+        .order('created_at', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+}
+
+/**
+ * Marks all messages in multiple contracts as read for the current user.
+ */
+export async function markMessagesAsReadForContracts(contractIds, currentUserId) {
+    if (!contractIds || contractIds.length === 0) return
+    const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .in('contract_id', contractIds)
+        .neq('sender_id', currentUserId)
+        .eq('is_read', false)
+    
+    if (error) {
+        console.error('Error marking messages as read:', error)
+    }
+}

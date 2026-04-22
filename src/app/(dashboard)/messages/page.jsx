@@ -23,7 +23,7 @@ function MessagesContent() {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Chat Selection & Filter State
-    const [selectedChat, setSelectedChat] = useState({ id: null, otherUserName: '', jobTitle: '', status: '', budget: 0 });
+    const [selectedChat, setSelectedChat] = useState({ id: null, otherUserName: '', contractIds: [], activeContractId: null });
     const [activeTab, setActiveTab] = useState('All');
     const [mobileView, setMobileView] = useState('list'); // 'list' or 'chat'
 
@@ -78,20 +78,53 @@ function MessagesContent() {
                 };
             }));
 
-            const finalChats = chatsWithDetails.filter(Boolean);
-            finalChats.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
-            setChats(finalChats);
+            const validContracts = chatsWithDetails.filter(Boolean);
+            
+            const userGroups = {};
+            for (const chat of validContracts) {
+                if (!userGroups[chat.otherPartyId]) {
+                    userGroups[chat.otherPartyId] = {
+                        id: chat.otherPartyId,
+                        otherPartyName: chat.otherPartyName,
+                        otherPartyAvatar: chat.otherPartyAvatar,
+                        otherPartyRating: chat.otherPartyRating,
+                        contractIds: [chat.id],
+                        activeContractId: chat.id,
+                        unreadCount: chat.unreadCount,
+                        lastMessage: chat.lastMessage,
+                        lastMessageTime: chat.lastMessageTime,
+                        lastSenderId: chat.lastSenderId,
+                        isHirer: chat.isHirer,
+                        hasActiveStatus: chat.status === 'active'
+                    };
+                } else {
+                    const group = userGroups[chat.otherPartyId];
+                    group.contractIds.push(chat.id);
+                    group.unreadCount += chat.unreadCount;
+                    if (new Date(chat.lastMessageTime) > new Date(group.lastMessageTime)) {
+                        group.lastMessageTime = chat.lastMessageTime;
+                        group.lastMessage = chat.lastMessage;
+                        group.lastSenderId = chat.lastSenderId;
+                    }
+                    if (chat.status === 'active') {
+                        group.activeContractId = chat.id;
+                        group.hasActiveStatus = true;
+                    }
+                }
+            }
+
+            const unifiedChats = Object.values(userGroups).sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+            setChats(unifiedChats);
 
             // Handle Deep Linking from Dashboard
             if (initialContractId) {
-                const targetChat = finalChats.find(c => c.id === initialContractId);
+                const targetChat = unifiedChats.find(c => c.contractIds.includes(initialContractId));
                 if (targetChat) {
                     setSelectedChat({
                         id: targetChat.id,
                         otherUserName: targetChat.otherPartyName,
-                        jobTitle: targetChat.jobTitle,
-                        status: targetChat.status,
-                        budget: targetChat.budget
+                        contractIds: targetChat.contractIds,
+                        activeContractId: targetChat.activeContractId
                     });
                     setMobileView('chat');
                 }
@@ -118,7 +151,7 @@ function MessagesContent() {
         const channel = supabase.channel('global-messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
             const newMsg = payload.new;
             setChats(prevChats => {
-                const chatIdx = prevChats.findIndex(c => c.id === newMsg.contract_id);
+                const chatIdx = prevChats.findIndex(c => c.contractIds.includes(newMsg.contract_id));
                 if (chatIdx === -1) return prevChats;
                 const updatedChats = [...prevChats];
                 const chat = updatedChats[chatIdx];
@@ -135,12 +168,11 @@ function MessagesContent() {
     }, [currentUser]);
 
     const filteredChats = chats.filter(chat => {
-        const matchesSearch = chat.otherPartyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            chat.jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = chat.otherPartyName.toLowerCase().includes(searchQuery.toLowerCase());
 
         if (!matchesSearch) return false;
 
-        if (activeTab === 'Active') return chat.status === 'active';
+        if (activeTab === 'Active') return chat.hasActiveStatus;
         if (activeTab === 'Awaiting Reply') return chat.unreadCount > 0 || (chat.lastSenderId && chat.lastSenderId !== currentUser?.id);
 
         return true;
@@ -150,9 +182,8 @@ function MessagesContent() {
         setSelectedChat({
             id: chat.id,
             otherUserName: chat.otherPartyName,
-            jobTitle: chat.jobTitle,
-            status: chat.status,
-            budget: chat.budget
+            contractIds: chat.contractIds,
+            activeContractId: chat.activeContractId
         });
         setMobileView('chat');
         setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
@@ -229,32 +260,25 @@ function MessagesContent() {
 
                                 <div className="chat-card-avatar-wrap">
                                     <div className="chat-card-avatar">
-                                        {chat.otherPartyAvatar ? <img src={chat.otherPartyAvatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : chat.otherPartyName?.[0]}
+                                        {chat.otherPartyAvatar ? <img src={chat.otherPartyAvatar} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : chat.otherPartyName?.[0]}
                                     </div>
-                                    {chat.status === 'active' && (
+                                    {chat.hasActiveStatus && (
                                         <div style={{ position: 'absolute', bottom: '2px', right: '2px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#10B981', border: '2px solid #FFF' }} />
                                     )}
                                 </div>
 
                                 <div className="chat-card-content">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <h4 className="para-text" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chat.jobTitle}</h4>
-                                        <span className="sub-para-text" style={{ whiteSpace: 'nowrap', marginLeft: '8px' }}>{formatTimestamp(chat.lastMessageTime)}</span>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                        <Badge variant={chat.status === 'pending' ? 'waiting' : (chat.status === 'active' ? 'active' : 'waiting')} showDot>
-                                            {chat.status === 'pending' ? 'Interested' : (chat.status === 'active' ? 'Assigned' : chat.status)}
-                                        </Badge>
-                                        <div className="sub-para-text" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span>{chat.otherPartyName}</span>
-                                            {chat.otherPartyRating && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <h4 className="para-text" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '15px' }}>{chat.otherPartyName}</h4>
+                                            {chat.otherPartyRating > 0 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#F59E0B' }}>
                                                     <FiStar size={12} fill="#F59E0B" />
-                                                    <span>{chat.otherPartyRating.toFixed(1)}</span>
+                                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{chat.otherPartyRating.toFixed(1)}</span>
                                                 </div>
                                             )}
                                         </div>
+                                        <span className="sub-para-text" style={{ whiteSpace: 'nowrap', marginLeft: '8px', fontSize: '12px' }}>{formatTimestamp(chat.lastMessageTime)}</span>
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '4px' }}>
@@ -288,12 +312,10 @@ function MessagesContent() {
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <ChatView
-                                contractId={selectedChat.id}
+                                contractIds={selectedChat.contractIds}
+                                defaultContractId={selectedChat.activeContractId}
                                 currentUserId={currentUser?.id}
                                 otherUserName={selectedChat.otherUserName}
-                                jobTitle={selectedChat.jobTitle}
-                                status={selectedChat.status}
-                                budget={selectedChat.budget}
                                 otherPartyAvatar={chats.find(c => c.id === selectedChat.id)?.otherPartyAvatar}
                                 onBack={() => setMobileView('list')}
                                 userRole={chats.find(c => c.id === selectedChat.id)?.isHirer ? 'hirer' : 'worker'} 

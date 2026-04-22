@@ -52,21 +52,46 @@ export default function HirerDashboard() {
             if (!user) return;
             setUserId(user.id);
 
-            /* profile */
-            const { data: prof } = await supabase
-                .from('profiles').select('*').eq('id', user.id).single();
-            setProfile(prof);
+            // Parallelize primary queries
+            const [
+                { data: prof },
+                { data: jobsData },
+                { data: conData },
+                { data: talentData },
+                { data: chatsData }
+            ] = await Promise.all([
+                supabase.from('profiles').select('*').eq('id', user.id).single(),
+                supabase.from('jobs')
+                    .select('*, application_count:applications(count)')
+                    .eq('hirer_id', user.id)
+                    .neq('status', 'completed')
+                    .neq('status', 'cancelled')
+                    .neq('status', 'closed')
+                    .order('created_at', { ascending: false }),
+                supabase.from('contracts')
+                    .select('*, jobs(id, title, urgency, budget_max, city, status), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url, average_rating)')
+                    .eq('hirer_id', user.id)
+                    .eq('status', 'active')
+                    .order('created_at', { ascending: false }),
+                supabase.from('saved_talent')
+                    .select('*, worker:profiles!saved_talent_worker_id_fkey(id, first_name, last_name, username, avatar_url, bio, average_rating)')
+                    .eq('hirer_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(8),
+                supabase.from('messages')
+                    .select(`id, content, created_at, is_read,
+                      contract:contracts!messages_contract_id_fkey(
+                        id,
+                        hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
+                        worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
+                      )`)
+                    .order('created_at', { ascending: false }).limit(20)
+            ]);
 
-            /* jobs */
-            const { data: jobsData } = await supabase
-                .from('jobs')
-                .select('*, application_count:applications(count)')
-                .eq('hirer_id', user.id)
-                .neq('status', 'completed')
-                .neq('status', 'cancelled')
-                .neq('status', 'closed')
-                .order('created_at', { ascending: false });
-            
+            setProfile(prof);
+            setContracts(conData || []);
+            setSavedTalent(talentData || []);
+
             // Clean application_count from the join
             const cleanedJobs = (jobsData || []).map(j => ({
                 ...j,
@@ -75,40 +100,15 @@ export default function HirerDashboard() {
             setJobs(cleanedJobs);
 
             /* applications for stats */
-            const { data: appsData } = await supabase
-                .from('applications')
-                .select('id, status')
-                .in('job_id', cleanedJobs.map(j => j.id));
-            setApplications(appsData || []);
-
-            /* contracts - Most recent active one */
-            const { data: conData } = await supabase
-                .from('contracts')
-                .select('*, jobs(id, title, urgency, budget_max, city, status), worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, username, avatar_url, average_rating)')
-                .eq('hirer_id', user.id)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false });
-            setContracts(conData || []);
-
-            /* saved talent */
-            const { data: talentData } = await supabase
-                .from('saved_talent')
-                .select('*, worker:profiles!saved_talent_worker_id_fkey(id, first_name, last_name, username, avatar_url, bio, average_rating)')
-                .eq('hirer_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(8);
-            setSavedTalent(talentData || []);
-
-            /* Latest chats */
-            const { data: chatsData } = await supabase
-                .from('messages')
-                .select(`id, content, created_at, is_read,
-                  contract:contracts!messages_contract_id_fkey(
-                    id,
-                    hirer:profiles!contracts_hirer_id_fkey(id, first_name, last_name, avatar_url),
-                    worker:profiles!contracts_worker_id_fkey(id, first_name, last_name, avatar_url)
-                  )`)
-                .order('created_at', { ascending: false }).limit(20);
+            let appsData = [];
+            if (cleanedJobs.length > 0) {
+                const { data } = await supabase
+                    .from('applications')
+                    .select('id, status')
+                    .in('job_id', cleanedJobs.map(j => j.id));
+                appsData = data || [];
+            }
+            setApplications(appsData);
 
             const seen = new Set();
             const deduped = [];
@@ -282,7 +282,7 @@ export default function HirerDashboard() {
                                 >
                                     <div className="wh-avatar-placeholder" style={{ width: '70px', height: '70px', margin: '0 auto 12px', borderRadius: '50%', border: '4px solid #f8fafc', boxShadow: 'var(--hw-shadow-low)' }}>
                                         {talent.worker.avatar_url ? (
-                                             <img src={talent.worker.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                             <img src={talent.worker.avatar_url} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                                         ) : (
                                             (talent.worker.first_name?.[0] || 'W').toUpperCase()
                                         )}

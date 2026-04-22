@@ -3,7 +3,7 @@
 import React from "react";
 import { TaskCard } from "./TaskCard";
 import { Button } from "./Button";
-import { FiBriefcase } from "react-icons/fi";
+import { FiBriefcase, FiStar } from "react-icons/fi";
 
 export function JobCard({ 
   job, 
